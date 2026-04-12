@@ -8,13 +8,13 @@
 ## Этап 0. Основа проекта
 
 ### Шаг 1. Инициализация проекта
-- [ ] `electron-vite` + TypeScript + React 18
+- [x] `electron-vite` + TypeScript + React 18
 - Конфигурация `tsconfig.json`, `electron.vite.config.ts`, `eslint`
 - **Результат:** приложение запускается, открывается пустое окно
 - **Commit:** `chore: init electron-vite project with TypeScript and React`
 
 ### Шаг 2. UI-фундамент
-- [ ] Tailwind CSS v4, shadcn/ui (Button, Card, Input, Dialog — базовый набор)
+- [x] Tailwind CSS v4, shadcn/ui (Button, Card, Input, Dialog — базовый набор)
 - Общий layout: sidebar + main area
 - **Результат:** приложение открывается с навигационной оболочкой
 - **Commit:** `chore: add Tailwind CSS v4, shadcn/ui and app shell layout`
