@@ -64,7 +64,7 @@
 - **Commit:** `feat: add Dashboard screen with tournament list`
 
 ### Шаг 7.5. Локализация (i18n)
-- [ ] `i18next` + `react-i18next` — setup и провайдер
+- [x] `i18next` + `react-i18next` — setup и провайдер
 - `src/renderer/src/locales/en/common.json` — английский (единственный язык MVP)
 - Все строки UI вынесены в файл переводов, компоненты используют `t()`
 - Обновить Dashboard и Sidebar (уже написанные экраны)

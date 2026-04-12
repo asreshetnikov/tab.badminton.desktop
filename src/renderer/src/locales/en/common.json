@@ -1,0 +1,35 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "players": "Players",
+    "teams": "Teams",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "title": "Tournaments",
+    "newTournament": "New Tournament",
+    "loading": "Loading...",
+    "empty": {
+      "title": "No tournaments yet",
+      "description": "Create your first tournament to get started."
+    }
+  },
+  "tournament": {
+    "status": {
+      "draft": "Draft",
+      "registration_open": "Registration Open",
+      "registration_closed": "Registration Closed",
+      "in_progress": "In Progress",
+      "finished": "Finished"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "confirm": "Confirm",
+    "close": "Close"
+  }
+}

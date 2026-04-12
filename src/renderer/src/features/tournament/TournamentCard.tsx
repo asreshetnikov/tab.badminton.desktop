@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { CalendarDays } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Card, CardHeader, CardTitle, CardContent } from '@renderer/components/ui/card'
 import { cn } from '@renderer/lib/utils'
-import { statusLabel, statusClass } from './status'
+import { statusClass } from './status'
 import type { Tournament } from '@shared/types/ipc'
 
 interface Props {
@@ -15,6 +16,7 @@ function formatDate(iso: string) {
 
 export function TournamentCard({ tournament }: Props) {
   const navigate = useNavigate()
+  const { t } = useTranslation()
 
   return (
     <Card
@@ -30,7 +32,7 @@ export function TournamentCard({ tournament }: Props) {
               statusClass[tournament.status]
             )}
           >
-            {statusLabel[tournament.status]}
+            {t(`tournament.status.${tournament.status}`)}
           </span>
         </div>
       </CardHeader>
