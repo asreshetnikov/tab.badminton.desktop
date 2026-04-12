@@ -41,7 +41,7 @@
 ## Этап 1. Турнир (каркас)
 
 ### Шаг 5. Таблица venues
-- [ ] Схема: `venues` (id, name, address)
+- [x] Схема: `venues` (id, name, address)
 - `VenueRepository`: create, getById, list, update, delete
 - IPC handler: `venues.*`
 - **Тесты:** unit-тесты VenueRepository (in-memory SQLite)
