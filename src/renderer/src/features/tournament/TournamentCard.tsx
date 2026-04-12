@@ -4,14 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { Card, CardHeader, CardTitle, CardContent } from '@renderer/components/ui/card'
 import { cn } from '@renderer/lib/utils'
 import { statusClass } from './status'
+import { formatDate } from '@renderer/lib/format'
 import type { Tournament } from '@shared/types/ipc'
 
 interface Props {
   tournament: Tournament
-}
-
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 export function TournamentCard({ tournament }: Props) {

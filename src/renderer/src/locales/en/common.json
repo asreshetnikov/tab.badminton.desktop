@@ -23,6 +23,19 @@
       "finished": "Finished"
     }
   },
+  "tournamentDetail": {
+    "notFound": "Tournament not found.",
+    "deleteTitle": "Delete tournament",
+    "deleteDescription": "This will permanently delete \"{{name}}\" and all its data. This action cannot be undone.",
+    "venue": "Venue",
+    "dateStart": "Start Date",
+    "dateEnd": "End Date",
+    "noVenue": "—"
+  },
+  "tournamentEdit": {
+    "title": "Edit Tournament",
+    "submit": "Save Changes"
+  },
   "tournamentNew": {
     "title": "New Tournament",
     "submit": "Create Tournament"
