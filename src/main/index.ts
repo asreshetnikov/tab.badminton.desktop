@@ -2,6 +2,7 @@ import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { initDatabase } from './db/client'
+import { registerIpcHandlers } from './ipc/router'
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -36,6 +37,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.tab-badminton.app')
   initDatabase()
+  registerIpcHandlers()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

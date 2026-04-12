@@ -1,6 +1,8 @@
-import { contextBridge } from 'electron'
-import { electronAPI } from '@electron-toolkit/preload'
+import { contextBridge, ipcRenderer } from 'electron'
+import type { AppAPI } from '../shared/types/ipc'
 
-// Expose electron APIs to renderer
-// Custom APIs will be added here as features are implemented
-contextBridge.exposeInMainWorld('electron', electronAPI)
+const api: AppAPI = {
+  ping: () => ipcRenderer.invoke('ping')
+}
+
+contextBridge.exposeInMainWorld('api', api)

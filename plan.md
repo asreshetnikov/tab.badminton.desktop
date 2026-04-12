@@ -28,7 +28,7 @@
 - **Commit:** `chore: add SQLite with Drizzle ORM and migrations infrastructure`
 
 ### Шаг 4. IPC-инфраструктура
-- [ ] `preload/index.ts` с `contextBridge`
+- [x] `preload/index.ts` с `contextBridge`
 - `main/ipc/router.ts` — регистрация handlers
 - `renderer/src/lib/api/` — типизированные обёртки `window.api.*`
 - `shared/types/` — базовые IPC-типы
