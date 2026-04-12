@@ -1,6 +1,8 @@
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { Dashboard } from './app/routes/Dashboard'
+import { TournamentNew } from './app/routes/TournamentNew'
+import { TournamentDetail } from './app/routes/TournamentDetail'
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -16,6 +18,8 @@ function App() {
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/tournaments/new" element={<TournamentNew />} />
+          <Route path="/tournaments/:id" element={<TournamentDetail />} />
           <Route path="/players" element={<Placeholder title="Players" />} />
           <Route path="/teams" element={<Placeholder title="Teams" />} />
           <Route path="/settings" element={<Placeholder title="Settings" />} />

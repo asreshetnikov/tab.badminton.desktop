@@ -23,6 +23,30 @@
       "finished": "Finished"
     }
   },
+  "tournamentNew": {
+    "title": "New Tournament",
+    "submit": "Create Tournament"
+  },
+  "tournamentForm": {
+    "name": "Tournament Name",
+    "namePlaceholder": "e.g. Open Cup 2025",
+    "venue": "Venue",
+    "dateStart": "Start Date",
+    "dateEnd": "End Date"
+  },
+  "venue": {
+    "noVenue": "No venue",
+    "new": "New venue",
+    "newTitle": "New Venue",
+    "name": "Name",
+    "namePlaceholder": "e.g. Sports Complex",
+    "address": "Address",
+    "addressPlaceholder": "e.g. 123 Main St"
+  },
+  "validation": {
+    "required": "This field is required",
+    "dateRange": "End date must be after or equal to start date"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -30,6 +54,7 @@
     "edit": "Edit",
     "create": "Create",
     "confirm": "Confirm",
-    "close": "Close"
+    "close": "Close",
+    "back": "Back"
   }
 }
