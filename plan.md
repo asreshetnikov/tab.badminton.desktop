@@ -20,7 +20,7 @@
 - **Commit:** `chore: add Tailwind CSS v4, shadcn/ui and app shell layout`
 
 ### Шаг 3. Инфраструктура базы данных
-- [ ] `better-sqlite3` + Drizzle ORM
+- [x] `better-sqlite3` + Drizzle ORM
 - `main/db/client.ts` — singleton подключение
 - `drizzle.config.ts`, `npm run db:generate`, `npm run db:migrate`
 - Пустая первая миграция

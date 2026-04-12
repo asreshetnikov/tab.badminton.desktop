@@ -5,6 +5,13 @@ copyright: Copyright © 2025
 directories:
   buildResources: build
 
+extraResources:
+  - from: src/main/db/migrations
+    to: migrations
+    filter:
+      - '**/*.sql'
+      - 'meta/**'
+
 files:
   - '!**/.vscode/*'
   - '!src/*'
