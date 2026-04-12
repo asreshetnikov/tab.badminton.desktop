@@ -7,3 +7,5 @@ out
 *.db-wal
 backups/
 analytics-queue.json
+.idea/
+.claude/
