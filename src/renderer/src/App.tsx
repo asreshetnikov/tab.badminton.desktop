@@ -1,5 +1,6 @@
 import { HashRouter, Routes, Route } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
+import { Dashboard } from './app/routes/Dashboard'
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -14,7 +15,7 @@ function App() {
     <HashRouter>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/" element={<Placeholder title="Dashboard" />} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/players" element={<Placeholder title="Players" />} />
           <Route path="/teams" element={<Placeholder title="Teams" />} />
           <Route path="/settings" element={<Placeholder title="Settings" />} />

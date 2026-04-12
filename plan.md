@@ -57,11 +57,19 @@
 - **Commit:** `feat: add tournaments table with repository and IPC handler`
 
 ### Шаг 7. Dashboard — список турниров
-- [ ] Маршрут `/` — список карточек турниров
+- [x] Маршрут `/` — список карточек турниров
 - Пустое состояние с call-to-action
 - Zustand store: `useTournamentStore`
 - **Результат:** пользователь видит список своих турниров (или empty state)
 - **Commit:** `feat: add Dashboard screen with tournament list`
+
+### Шаг 7.5. Локализация (i18n)
+- [ ] `i18next` + `react-i18next` — setup и провайдер
+- `src/renderer/src/locales/en/common.json` — английский (единственный язык MVP)
+- Все строки UI вынесены в файл переводов, компоненты используют `t()`
+- Обновить Dashboard и Sidebar (уже написанные экраны)
+- **Результат:** все строки в одном месте, добавление нового языка — только новый JSON-файл
+- **Commit:** `chore: add i18n infrastructure with react-i18next`
 
 ### Шаг 8. Создание турнира
 - [ ] Маршрут `/tournaments/new` — форма создания
