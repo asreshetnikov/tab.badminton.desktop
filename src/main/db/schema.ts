@@ -8,3 +8,16 @@ export const venues = sqliteTable('venues', {
   name: text('name').notNull(),
   address: text('address')
 })
+
+export const tournaments = sqliteTable('tournaments', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  date_start: text('date_start').notNull(),
+  date_end: text('date_end').notNull(),
+  venue_id: text('venue_id').references(() => venues.id),
+  status: text('status', {
+    enum: ['draft', 'registration_open', 'registration_closed', 'in_progress', 'finished']
+  }).notNull().default('draft'),
+  created_at: text('created_at').notNull(),
+  updated_at: text('updated_at').notNull()
+})

@@ -49,7 +49,7 @@
 - **Commit:** `feat: add venues table with repository and IPC handler`
 
 ### Шаг 6. Таблица tournaments
-- [ ] Схема: `tournaments` (id, name, date_start, date_end, venue_id, status, created_at, updated_at)
+- [x] Схема: `tournaments` (id, name, date_start, date_end, venue_id, status, created_at, updated_at)
 - `TournamentRepository`: create, getById, list, update, delete
 - IPC handler: `tournament.*`
 - **Тесты:** unit-тесты TournamentRepository
