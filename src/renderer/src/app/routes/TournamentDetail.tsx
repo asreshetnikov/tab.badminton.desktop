@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, Users } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -106,6 +106,10 @@ export function TournamentDetail() {
           {t(`tournament.status.${tournament.status}`)}
         </span>
         <div className="ml-auto flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/players`)}>
+            <Users className="mr-1.5 h-3.5 w-3.5" />
+            {t('registrations.title')}
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             {t('common.edit')}

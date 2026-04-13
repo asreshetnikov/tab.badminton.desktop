@@ -60,6 +60,28 @@
     "required": "This field is required",
     "dateRange": "End date must be after or equal to start date"
   },
+  "registrations": {
+    "title": "Player Registrations",
+    "add": "Add Players",
+    "addDialogTitle": "Add Players",
+    "search": "Search by name or club...",
+    "selectAll": "Select all",
+    "registerSelected": "Register {{count}} player(s)",
+    "selectPlayer": "Select player...",
+    "empty": {
+      "title": "No players registered",
+      "description": "Add players to this tournament."
+    },
+    "status": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "rejected": "Rejected"
+    },
+    "registeredAt": "Registered",
+    "accept": "Accept",
+    "reject": "Reject",
+    "remove": "Remove"
+  },
   "teams": {
     "title": "Teams",
     "newTeam": "New Team",

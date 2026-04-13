@@ -126,7 +126,7 @@
 - **Commit:** `feat: add global teams registry with team_players`
 
 ### Шаг 15. Заявки игроков на турнир (tournament_players)
-- [ ] Схема: `tournament_players` (id, tournament_id, player_id, status, registered_at)
+- [x] Схема: `tournament_players` (id, tournament_id, player_id, status, registered_at)
 - `TournamentPlayerRepository` + IPC handler
 - Маршрут `/tournaments/:id/players` — список заявок, изменение статуса (pending → accepted / rejected)
 - **Результат:** организатор может управлять регистрацией игроков на турнир

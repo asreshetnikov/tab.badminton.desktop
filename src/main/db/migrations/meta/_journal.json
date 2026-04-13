@@ -43,6 +43,13 @@
       "when": 1776071449935,
       "tag": "0005_cloudy_mastermind",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1776072414118,
+      "tag": "0006_majestic_bug",
+      "breakpoints": true
     }
   ]
 }
