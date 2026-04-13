@@ -29,6 +29,13 @@
       "when": 1776069798100,
       "tag": "0003_lazy_loners",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1776070504073,
+      "tag": "0004_ordinary_vargas",
+      "breakpoints": true
     }
   ]
 }

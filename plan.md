@@ -94,7 +94,7 @@
 - **Commit:** `feat: add courts management within tournament`
 
 ### Шаг 11. Категории турнира (events)
-- [ ] Схема: `events` (id, tournament_id, name, category, max_entries)
+- [x] Схема: `events` (id, tournament_id, name, category, max_entries)
 - `EventRepository` + IPC handler
 - UI: список категорий (MS / WS / MD / WD / XD), добавление/удаление
 - **Результат:** к турниру можно добавить соревновательные категории
@@ -105,7 +105,7 @@
 ## Этап 2. Игроки и команды (реестр)
 
 ### Шаг 12. Глобальный реестр игроков
-- [ ] Схема: `players` (id, first_name, last_name, club)
+- [x] Схема: `players` (id, first_name, last_name, club)
 - `PlayerRepository` + IPC handler
 - Маршрут `/players` — список, создание, редактирование
 - **Результат:** организатор может вести базу игроков независимо от турниров

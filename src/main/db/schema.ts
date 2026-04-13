@@ -22,6 +22,13 @@ export const tournaments = sqliteTable('tournaments', {
   updated_at: text('updated_at').notNull()
 })
 
+export const players = sqliteTable('players', {
+  id: text('id').primaryKey(),
+  first_name: text('first_name').notNull(),
+  last_name: text('last_name').notNull(),
+  club: text('club')
+})
+
 export const events = sqliteTable('events', {
   id: text('id').primaryKey(),
   tournament_id: text('tournament_id')

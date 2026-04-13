@@ -60,6 +60,19 @@
     "required": "This field is required",
     "dateRange": "End date must be after or equal to start date"
   },
+  "players": {
+    "title": "Players",
+    "newPlayer": "New Player",
+    "empty": {
+      "title": "No players yet",
+      "description": "Add your first player to get started."
+    },
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "club": "Club",
+    "clubPlaceholder": "e.g. Spartak",
+    "deleteDescription": "Remove \"{{name}}\" from the registry?"
+  },
   "events": {
     "title": "Categories",
     "empty": "No categories added yet.",
