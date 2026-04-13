@@ -1,5 +1,25 @@
 export type MatchStatus = 'scheduled' | 'in_progress' | 'finished' | 'walkover' | 'retired'
 
+export interface MatchSet {
+  id: string
+  match_id: string
+  order: number
+  s1: number
+  s2: number
+}
+
+export interface SetScore {
+  s1: number
+  s2: number
+}
+
+export interface UpdateMatchResultDTO {
+  status: MatchStatus
+  sets: SetScore[]
+  /** Required when status is 'walkover' */
+  winner_team_id?: string | null
+}
+
 export interface Match {
   id: string
   round_id: string
@@ -20,4 +40,5 @@ export interface Match {
 export interface MatchWithTeams extends Match {
   team1: { id: string; name: string } | null
   team2: { id: string; name: string } | null
+  sets: MatchSet[]
 }

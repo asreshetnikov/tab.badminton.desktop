@@ -166,14 +166,14 @@
 - **Commit:** `feat: add RoundRobinService.generateMatches with tests`
 
 ### Шаг 20. Экран групп (Groups View)
-- [ ] Маршрут `/tournaments/:id/events/:eid/rounds/:rid/groups`
+- [x] Маршрут `/tournaments/:id/events/:eid/rounds/:rid/groups`
 - Отображение списка матчей раунда
 - Таблица round_table (standings)
 - **Результат:** организатор видит все матчи и турнирную таблицу группового этапа
 - **Commit:** `feat: add Groups View screen with matches list and standings table`
 
 ### Шаг 21. Ввод результата матча
-- [ ] UI: диалог ввода счёта по партиям (match_sets) и итогового счёта (matches.s1/s2)
+- [x] UI: диалог ввода счёта по партиям (match_sets) и итогового счёта (matches.s1/s2)
 - Статусы матча: scheduled → in_progress → finished / walkover / retired
 - `RoundRobinService.updateStandings(roundId)` — пересчёт round_table после ввода
 - **Тесты:** unit-тесты updateStandings: wins/losses, sets, points, tie-break

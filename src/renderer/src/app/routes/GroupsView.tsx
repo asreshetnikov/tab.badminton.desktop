@@ -20,8 +20,10 @@ import type {
   TournamentTeamWithTeam,
   RoundTeamWithTeam,
   MatchWithTeams,
-  RoundTableRowWithTeam
+  RoundTableRowWithTeam,
+  UpdateMatchResultDTO
 } from '@shared/types/ipc'
+import type { MatchStatus } from '@shared/types/match'
 
 export function GroupsView() {
   const { id, eid, rid } = useParams<{ id: string; eid: string; rid: string }>()
@@ -50,6 +52,13 @@ export function GroupsView() {
   // Generate matches
   const [isGenerating, setIsGenerating] = useState(false)
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false)
+
+  // Match result dialog
+  const [resultMatch, setResultMatch] = useState<MatchWithTeams | null>(null)
+  const [resultSets, setResultSets] = useState<{ s1: string; s2: string }[]>([])
+  const [resultStatus, setResultStatus] = useState<MatchStatus>('finished')
+  const [resultWinnerId, setResultWinnerId] = useState<string>('')
+  const [isSavingResult, setIsSavingResult] = useState(false)
 
   useEffect(() => {
     if (!id || !eid || !rid) return
@@ -164,6 +173,66 @@ export function GroupsView() {
       setMatches(generated)
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  // ─── Match result ──────────────────────────────────────────────────────────
+
+  function openResultDialog(m: MatchWithTeams) {
+    setResultMatch(m)
+    if (m.sets.length > 0) {
+      setResultSets(m.sets.map((s) => ({ s1: String(s.s1), s2: String(s.s2) })))
+    } else {
+      setResultSets([{ s1: '', s2: '' }, { s1: '', s2: '' }])
+    }
+    setResultStatus(
+      m.status === 'scheduled' || m.status === 'in_progress' ? 'finished' : m.status
+    )
+    setResultWinnerId(m.winner_team_id ?? '')
+  }
+
+  function closeResultDialog() {
+    setResultMatch(null)
+  }
+
+  function updateSet(idx: number, field: 's1' | 's2', value: string) {
+    setResultSets((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)))
+  }
+
+  function addSet() {
+    setResultSets((prev) => [...prev, { s1: '', s2: '' }])
+  }
+
+  function removeSet(idx: number) {
+    setResultSets((prev) => prev.filter((_, i) => i !== idx))
+  }
+
+  async function handleSaveResult() {
+    if (!resultMatch) return
+    setIsSavingResult(true)
+    try {
+      const parsedSets =
+        resultStatus === 'walkover'
+          ? []
+          : resultSets
+              .filter((s) => s.s1 !== '' || s.s2 !== '')
+              .map((s) => ({ s1: Number(s.s1) || 0, s2: Number(s.s2) || 0 }))
+
+      const dto: UpdateMatchResultDTO = {
+        status: resultStatus,
+        sets: parsedSets,
+        winner_team_id: resultStatus === 'walkover' ? resultWinnerId || null : undefined
+      }
+
+      const { match: updated, standings: updatedStandings } = await api.matches.updateResult(
+        resultMatch.id,
+        dto
+      )
+      setMatches((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
+      setStandings(sortStandings(updatedStandings))
+      closeResultDialog()
+    } finally {
+      setIsSavingResult(false)
     }
   }
 
@@ -328,7 +397,8 @@ export function GroupsView() {
                         {byTour[tour].map((m) => (
                           <div
                             key={m.id}
-                            className="flex items-center gap-3 rounded-lg border px-4 py-2.5 text-sm"
+                            className="group/match flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 text-sm hover:bg-muted/50"
+                            onClick={() => openResultDialog(m)}
                           >
                             <span className="min-w-0 flex-1 truncate text-right font-medium">
                               {m.team1?.name ?? '—'}
@@ -342,7 +412,9 @@ export function GroupsView() {
                                 'shrink-0 rounded-full px-2 py-0.5 text-xs',
                                 m.status === 'finished'
                                   ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                                  : 'bg-muted text-muted-foreground'
+                                  : m.status === 'walkover' || m.status === 'retired'
+                                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                                    : 'bg-muted text-muted-foreground'
                               )}
                             >
                               {t(`matches.status.${m.status}`)}
@@ -461,17 +533,139 @@ export function GroupsView() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Match result dialog */}
+      <Dialog open={!!resultMatch} onOpenChange={(open) => { if (!open) closeResultDialog() }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {resultMatch?.status === 'scheduled' || resultMatch?.status === 'in_progress'
+                ? t('matches.enterResult')
+                : t('matches.editResult')}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Status selector */}
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-muted-foreground">{t('matches.resultStatus')}</p>
+              <div className="flex gap-2">
+                {(['finished', 'walkover', 'retired'] as MatchStatus[]).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setResultStatus(s)}
+                    className={cn(
+                      'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                      resultStatus === s
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    )}
+                  >
+                    {t(`matches.status.${s}`)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {resultStatus === 'walkover' ? (
+              /* Walkover: pick winner */
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">{t('matches.winner')}</p>
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    { id: resultMatch?.team1_id ?? '', name: resultMatch?.team1?.name ?? '—' },
+                    { id: resultMatch?.team2_id ?? '', name: resultMatch?.team2?.name ?? '—' }
+                  ].map((team) => (
+                    <label key={team.id} className="flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 hover:bg-muted">
+                      <input
+                        type="radio"
+                        name="winner"
+                        value={team.id}
+                        checked={resultWinnerId === team.id}
+                        onChange={() => setResultWinnerId(team.id)}
+                        className="h-4 w-4"
+                      />
+                      <span className="text-sm font-medium">{team.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* Finished/Retired: enter set scores */
+              <div>
+                <div className="mb-2 grid grid-cols-[auto_1fr_auto_1fr] items-center gap-x-2 gap-y-2 text-xs font-medium text-muted-foreground">
+                  <span />
+                  <span className="truncate">{resultMatch?.team1?.name ?? '—'}</span>
+                  <span />
+                  <span className="truncate">{resultMatch?.team2?.name ?? '—'}</span>
+                </div>
+                {resultSets.map((set, idx) => (
+                  <div key={idx} className="mb-2 grid grid-cols-[auto_1fr_auto_1fr_auto] items-center gap-x-2">
+                    <span className="w-12 text-xs text-muted-foreground">{t('matches.set', { n: idx + 1 })}</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={set.s1}
+                      onChange={(e) => updateSet(idx, 's1', e.target.value)}
+                      className="h-8 text-center"
+                    />
+                    <span className="text-center text-muted-foreground">–</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={set.s2}
+                      onChange={(e) => updateSet(idx, 's2', e.target.value)}
+                      className="h-8 text-center"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => removeSet(idx)}
+                      disabled={resultSets.length <= 1}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs text-muted-foreground"
+                  onClick={addSet}
+                  disabled={resultSets.length >= 5}
+                >
+                  <Plus className="mr-1 h-3 w-3" />
+                  {t('matches.addSet')}
+                </Button>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeResultDialog}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              onClick={handleSaveResult}
+              disabled={isSavingResult || (resultStatus === 'walkover' && !resultWinnerId)}
+            >
+              {t('matches.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 function MatchScore({ match }: { match: MatchWithTeams }) {
   if (match.status !== 'finished' && match.status !== 'walkover' && match.status !== 'retired') {
-    return <span className="w-12 shrink-0 text-center text-xs text-muted-foreground">vs</span>
+    return <span className="w-16 shrink-0 text-center text-xs text-muted-foreground">vs</span>
   }
   return (
-    <span className="w-12 shrink-0 text-center font-mono font-semibold">
-      {match.s1 ?? 0}:{match.s2 ?? 0}
+    <span className="w-16 shrink-0 text-center font-mono font-semibold">
+      {match.s1 ?? 0}–{match.s2 ?? 0}
     </span>
   )
 }

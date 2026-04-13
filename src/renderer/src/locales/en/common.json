@@ -213,7 +213,18 @@
       "finished": "Finished",
       "walkover": "Walkover",
       "retired": "Retired"
-    }
+    },
+    "enterResult": "Enter Result",
+    "editResult": "Edit Result",
+    "set": "Set {{n}}",
+    "addSet": "Add Set",
+    "removeSet": "Remove",
+    "resultStatus": "Result",
+    "winner": "Winner",
+    "selectWinner": "Select winner...",
+    "noWinner": "No winner",
+    "save": "Save Result",
+    "setScore": "{{s1}} – {{s2}}"
   },
   "common": {
     "save": "Save",
