@@ -185,7 +185,7 @@
 ## Этап 4. Playoff
 
 ### Шаг 22. Генерация playoff bracket
-- [ ] `PlayoffService.generateBracket(roundId, roundTeams[])` — определение размера сетки, bye-слоты, дерево матчей (win_match_id, left_match_id, right_match_id)
+- [x] `PlayoffService.generateBracket(roundId, roundTeams[])` — определение размера сетки, bye-слоты, дерево матчей (win_match_id, left_match_id, right_match_id)
 - **Тесты:** unit-тесты: 5 команд → bracket 8, расстановка bye; 8 команд → bracket 8, нет bye; корректные ссылки между матчами
 - **Результат:** IPC-вызов создаёт структуру playoff bracket в БД
 - **Commit:** `feat: add PlayoffService.generateBracket with bracket tree and tests`

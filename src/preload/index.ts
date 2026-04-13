@@ -66,6 +66,7 @@ const api: AppAPI = {
 
   matches: {
     generate: (roundId) => ipcRenderer.invoke('matches:generate', roundId),
+    generatePlayoff: (roundId) => ipcRenderer.invoke('matches:generatePlayoff', roundId),
     listByRound: (roundId) => ipcRenderer.invoke('matches:listByRound', roundId),
     deleteByRound: (roundId) => ipcRenderer.invoke('matches:deleteByRound', roundId),
     updateResult: (matchId, dto) => ipcRenderer.invoke('matches:updateResult', matchId, dto)
