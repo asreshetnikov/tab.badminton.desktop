@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2, ChevronDown, ChevronRight, Users } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, ChevronDown, ChevronRight, Users, Swords, RefreshCw } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -20,7 +20,8 @@ import type {
   Round,
   RoundType,
   TournamentTeamWithTeam,
-  RoundTeamWithTeam
+  RoundTeamWithTeam,
+  MatchWithTeams
 } from '@shared/types/ipc'
 
 const ROUND_TYPE_OPTIONS: { value: RoundType; labelKey: string }[] = [
@@ -104,6 +105,9 @@ export function TournamentRounds() {
   const [addTeamsRoundId, setAddTeamsRoundId] = useState<string | null>(null)
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set())
   const [isAddingTeams, setIsAddingTeams] = useState(false)
+  const [matchesByRound, setMatchesByRound] = useState<Record<string, MatchWithTeams[]>>({})
+  const [generatingRoundId, setGeneratingRoundId] = useState<string | null>(null)
+  const [regenConfirmRoundId, setRegenConfirmRoundId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -178,9 +182,33 @@ export function TournamentRounds() {
       return
     }
     setExpandedRoundId(round.id)
-    if (!roundTeamsByRound[round.id]) {
-      const teams = await api.roundTeams.listByRound(round.id)
-      setRoundTeamsByRound((prev) => ({ ...prev, [round.id]: teams }))
+    const [teams, matchList] = await Promise.all([
+      roundTeamsByRound[round.id] ? Promise.resolve(roundTeamsByRound[round.id]) : api.roundTeams.listByRound(round.id),
+      matchesByRound[round.id] !== undefined ? Promise.resolve(matchesByRound[round.id]) : api.matches.listByRound(round.id)
+    ])
+    setRoundTeamsByRound((prev) => ({ ...prev, [round.id]: teams }))
+    setMatchesByRound((prev) => ({ ...prev, [round.id]: matchList }))
+  }
+
+  async function handleGenerateMatches(roundId: string) {
+    setGeneratingRoundId(roundId)
+    try {
+      const generated = await api.matches.generate(roundId)
+      setMatchesByRound((prev) => ({ ...prev, [roundId]: generated }))
+    } finally {
+      setGeneratingRoundId(null)
+    }
+  }
+
+  async function handleRegenMatches(roundId: string) {
+    setRegenConfirmRoundId(null)
+    setGeneratingRoundId(roundId)
+    try {
+      await api.matches.deleteByRound(roundId)
+      const generated = await api.matches.generate(roundId)
+      setMatchesByRound((prev) => ({ ...prev, [roundId]: generated }))
+    } finally {
+      setGeneratingRoundId(null)
     }
   }
 
@@ -385,43 +413,126 @@ export function TournamentRounds() {
                       </Button>
                     </div>
 
-                    {/* Expanded: team list */}
+                    {/* Expanded: team list + matches */}
                     {isExpanded && (
-                      <div className="border-t px-4 py-3">
-                        {roundTeams.length === 0 ? (
-                          <p className="py-2 text-center text-sm text-muted-foreground">
-                            {t('rounds.noTeams')}
+                      <div className="border-t px-4 py-3 space-y-4">
+                        {/* Teams section */}
+                        <div>
+                          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            {t('rounds.participants')}
                           </p>
-                        ) : (
-                          <ul className="mb-3 space-y-1">
-                            {roundTeams
-                              .slice()
-                              .sort((a, b) => a.team.name.localeCompare(b.team.name))
-                              .map((rt, idx) => (
-                                <li key={rt.id} className="group/rt flex items-center gap-2 text-sm">
-                                  <span className="w-5 text-right text-xs text-muted-foreground">{idx + 1}.</span>
-                                  <span className="flex-1">{rt.team.name}</span>
+                          {roundTeams.length === 0 ? (
+                            <p className="py-1 text-sm text-muted-foreground">
+                              {t('rounds.noTeams')}
+                            </p>
+                          ) : (
+                            <ul className="mb-2 space-y-0.5">
+                              {roundTeams
+                                .slice()
+                                .sort((a, b) => a.team.name.localeCompare(b.team.name))
+                                .map((rt, idx) => (
+                                  <li key={rt.id} className="group/rt flex items-center gap-2 text-sm">
+                                    <span className="w-5 text-right text-xs text-muted-foreground">{idx + 1}.</span>
+                                    <span className="flex-1">{rt.team.name}</span>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 opacity-0 hover:text-destructive group-hover/rt:opacity-100"
+                                      onClick={() => handleRemoveRoundTeam(rt)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </li>
+                                ))}
+                            </ul>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => openAddTeamsDialog(round.id)}
+                          >
+                            <Plus className="mr-1 h-3 w-3" />
+                            {t('rounds.addTeams')}
+                          </Button>
+                        </div>
+
+                        {/* Matches section (only for round_robin) */}
+                        {round.type === 'round_robin' && (
+                          <div>
+                            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                              {t('rounds.matches')}
+                            </p>
+                            {(() => {
+                              const roundMatches = matchesByRound[round.id] ?? []
+                              const isGenerating = generatingRoundId === round.id
+                              if (roundMatches.length === 0) {
+                                return (
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm text-muted-foreground">{t('rounds.noMatches')}</p>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="h-7 text-xs"
+                                      disabled={roundTeams.length < 2 || isGenerating}
+                                      onClick={() => handleGenerateMatches(round.id)}
+                                    >
+                                      <Swords className="mr-1 h-3 w-3" />
+                                      {t('rounds.generate')}
+                                    </Button>
+                                  </div>
+                                )
+                              }
+                              // Group matches by tour
+                              const byTour = roundMatches.reduce<Record<number, typeof roundMatches>>(
+                                (acc, m) => {
+                                  const tour = m.tour ?? 1
+                                  acc[tour] = acc[tour] ?? []
+                                  acc[tour].push(m)
+                                  return acc
+                                },
+                                {}
+                              )
+                              return (
+                                <div>
+                                  <div className="mb-2 space-y-3">
+                                    {Object.entries(byTour).map(([tour, tourMatches]) => (
+                                      <div key={tour}>
+                                        <p className="mb-1 text-xs font-medium text-muted-foreground">
+                                          {t('rounds.tour', { n: tour })}
+                                        </p>
+                                        <ul className="space-y-0.5">
+                                          {tourMatches.map((m) => (
+                                            <li key={m.id} className="flex items-center gap-2 text-sm pl-2">
+                                              <span className="flex-1">
+                                                {m.team1?.name ?? '—'}{' '}
+                                                <span className="text-muted-foreground">vs</span>{' '}
+                                                {m.team2?.name ?? '—'}
+                                              </span>
+                                              <span className="text-xs text-muted-foreground">
+                                                {t(`matches.status.${m.status}`)}
+                                              </span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    ))}
+                                  </div>
                                   <Button
+                                    size="sm"
                                     variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 opacity-0 hover:text-destructive group-hover/rt:opacity-100"
-                                    onClick={() => handleRemoveRoundTeam(rt)}
+                                    className="h-7 text-xs text-muted-foreground"
+                                    disabled={isGenerating}
+                                    onClick={() => setRegenConfirmRoundId(round.id)}
                                   >
-                                    <Trash2 className="h-3 w-3" />
+                                    <RefreshCw className="mr-1 h-3 w-3" />
+                                    {t('rounds.regenerate')}
                                   </Button>
-                                </li>
-                              ))}
-                          </ul>
+                                </div>
+                              )
+                            })()}
+                          </div>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 text-xs"
-                          onClick={() => openAddTeamsDialog(round.id)}
-                        >
-                          <Plus className="mr-1 h-3 w-3" />
-                          {t('rounds.addTeams')}
-                        </Button>
                       </div>
                     )}
                   </div>
@@ -440,6 +551,24 @@ export function TournamentRounds() {
           )}
         </>
       )}
+
+      {/* Regenerate confirmation dialog */}
+      <Dialog open={!!regenConfirmRoundId} onOpenChange={(open) => { if (!open) setRegenConfirmRoundId(null) }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('rounds.regenerateTitle')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('rounds.regenerateDescription')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenConfirmRoundId(null)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={() => regenConfirmRoundId && handleRegenMatches(regenConfirmRoundId)}>
+              {t('rounds.regenerate')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Teams dialog */}
       <Dialog open={!!addTeamsRoundId} onOpenChange={(open) => { if (!open) closeAddTeamsDialog() }}>

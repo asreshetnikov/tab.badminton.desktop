@@ -63,6 +63,12 @@ const api: AppAPI = {
     remove: (id) => ipcRenderer.invoke('roundTeams:remove', id)
   },
 
+  matches: {
+    generate: (roundId) => ipcRenderer.invoke('matches:generate', roundId),
+    listByRound: (roundId) => ipcRenderer.invoke('matches:listByRound', roundId),
+    deleteByRound: (roundId) => ipcRenderer.invoke('matches:deleteByRound', roundId)
+  },
+
   teams: {
     create: (data) => ipcRenderer.invoke('teams:create', data),
     list: () => ipcRenderer.invoke('teams:list'),

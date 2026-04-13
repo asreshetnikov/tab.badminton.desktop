@@ -12,6 +12,7 @@ import type { TournamentPlayerWithPlayer, RegistrationStatus } from './tournamen
 import type { TournamentTeamWithTeam } from './tournament-team'
 import type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO } from './round'
 import type { RoundTeamWithTeam } from './round-team'
+import type { MatchWithTeams } from './match'
 
 export type { Venue, CreateVenueDTO, UpdateVenueDTO }
 export type { Tournament, CreateTournamentDTO, UpdateTournamentDTO }
@@ -23,6 +24,7 @@ export type { TournamentPlayerWithPlayer, RegistrationStatus }
 export type { TournamentTeamWithTeam }
 export type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO }
 export type { RoundTeamWithTeam }
+export type { MatchWithTeams }
 
 export interface AppAPI {
   ping(): Promise<string>
@@ -91,6 +93,12 @@ export interface AppAPI {
     addMany(roundId: string, teamIds: string[]): Promise<RoundTeamWithTeam[]>
     listByRound(roundId: string): Promise<RoundTeamWithTeam[]>
     remove(id: string): Promise<void>
+  }
+
+  matches: {
+    generate(roundId: string): Promise<MatchWithTeams[]>
+    listByRound(roundId: string): Promise<MatchWithTeams[]>
+    deleteByRound(roundId: string): Promise<void>
   }
 
   players: {

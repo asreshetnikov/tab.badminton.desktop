@@ -173,7 +173,24 @@
     "addTeams": "Add Teams",
     "addTeamsTitle": "Add Teams to {{round}}",
     "addSelected": "Add {{count}} team(s)",
-    "noEligibleTeams": "All registered teams are already in this round."
+    "noEligibleTeams": "All registered teams are already in this round.",
+    "participants": "Participants",
+    "matches": "Matches",
+    "noMatches": "No matches generated yet.",
+    "tour": "Tour {{n}}",
+    "generate": "Generate Matches",
+    "regenerate": "Regenerate",
+    "regenerateTitle": "Regenerate matches?",
+    "regenerateDescription": "This will delete all existing matches for this round and generate new ones. Any results entered will be lost."
+  },
+  "matches": {
+    "status": {
+      "scheduled": "Scheduled",
+      "in_progress": "In Progress",
+      "finished": "Finished",
+      "walkover": "Walkover",
+      "retired": "Retired"
+    }
   },
   "common": {
     "save": "Save",

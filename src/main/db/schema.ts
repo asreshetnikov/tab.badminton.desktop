@@ -130,3 +130,36 @@ export const round_table = sqliteTable('round_table', {
   points_lost: integer('points_lost').notNull().default(0),
   position: integer('position')
 })
+
+export const matches = sqliteTable('matches', {
+  id: text('id').primaryKey(),
+  round_id: text('round_id')
+    .notNull()
+    .references(() => rounds.id, { onDelete: 'cascade' }),
+  team1_id: text('team1_id').references(() => teams.id, { onDelete: 'set null' }),
+  team2_id: text('team2_id').references(() => teams.id, { onDelete: 'set null' }),
+  winner_team_id: text('winner_team_id').references(() => teams.id, { onDelete: 'set null' }),
+  s1: integer('s1'),
+  s2: integer('s2'),
+  status: text('status', {
+    enum: ['scheduled', 'in_progress', 'finished', 'walkover', 'retired']
+  })
+    .notNull()
+    .default('scheduled'),
+  scheduled_at: text('scheduled_at'),
+  court_id: text('court_id').references(() => courts.id, { onDelete: 'set null' }),
+  win_match_id: text('win_match_id'),
+  left_match_id: text('left_match_id'),
+  right_match_id: text('right_match_id'),
+  tour: integer('tour')
+})
+
+export const match_sets = sqliteTable('match_sets', {
+  id: text('id').primaryKey(),
+  match_id: text('match_id')
+    .notNull()
+    .references(() => matches.id, { onDelete: 'cascade' }),
+  order: integer('order').notNull(),
+  s1: integer('s1').notNull().default(0),
+  s2: integer('s2').notNull().default(0)
+})
