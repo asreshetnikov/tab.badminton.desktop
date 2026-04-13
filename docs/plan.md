@@ -158,7 +158,7 @@
 - **Commit:** `feat: add round_teams and round_table with team assignment UI`
 
 ### Шаг 19. Генерация матчей Round Robin
-- [ ] Схема: `matches` (id, round_id, team1_id, team2_id, winner_team_id, s1, s2, status, scheduled_at, court_id, win_match_id, left_match_id, right_match_id), `match_sets` (id, match_id, order, s1, s2)
+- [x] Схема: `matches` (id, round_id, team1_id, team2_id, winner_team_id, s1, s2, status, scheduled_at, court_id, win_match_id, left_match_id, right_match_id), `match_sets` (id, match_id, order, s1, s2)
 - `MatchRepository` + IPC handler
 - `RoundRobinService.generateMatches(roundId)` — каждый против каждого, уникальные пары
 - **Тесты:** unit-тесты generateMatches: корректное число пар, нет дублей
