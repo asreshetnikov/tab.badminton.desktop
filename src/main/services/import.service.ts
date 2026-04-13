@@ -1,4 +1,4 @@
-import type { CreatePlayerDTO } from '@shared/types/player'
+import type { CreatePlayerDTO, PlayerGender } from '@shared/types/player'
 
 // Known header aliases — rows matching these are skipped
 const HEADER_ALIASES = new Set([
@@ -39,13 +39,19 @@ export function parsePlayersCSV(content: string): CreatePlayerDTO[] {
     const last_name = cells[0] ?? ''
     const first_name = cells[1] ?? ''
     const club = cells[2] ?? null
+    const genderRaw = (cells[3] ?? '').toLowerCase()
+    const gender: PlayerGender | null =
+      genderRaw === 'm' || genderRaw === 'male' ? 'M'
+      : genderRaw === 'f' || genderRaw === 'female' ? 'F'
+      : null
 
     if (!last_name || !first_name) continue
 
     result.push({
       last_name,
       first_name,
-      club: club || null
+      club: club || null,
+      gender
     })
   }
 

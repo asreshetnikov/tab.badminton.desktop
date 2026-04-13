@@ -6,6 +6,7 @@ import { TournamentDetail } from './app/routes/TournamentDetail'
 import { Players } from './app/routes/Players'
 import { Teams } from './app/routes/Teams'
 import { TournamentPlayers } from './app/routes/TournamentPlayers'
+import { TournamentTeams } from './app/routes/TournamentTeams'
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -24,6 +25,7 @@ function App() {
           <Route path="/tournaments/new" element={<TournamentNew />} />
           <Route path="/tournaments/:id" element={<TournamentDetail />} />
           <Route path="/tournaments/:id/players" element={<TournamentPlayers />} />
+          <Route path="/tournaments/:id/teams" element={<TournamentTeams />} />
           <Route path="/players" element={<Players />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/settings" element={<Placeholder title="Settings" />} />

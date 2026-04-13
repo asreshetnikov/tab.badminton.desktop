@@ -11,5 +11,5 @@ export interface TournamentPlayer {
 }
 
 export interface TournamentPlayerWithPlayer extends TournamentPlayer {
-  player: Pick<Player, 'id' | 'first_name' | 'last_name' | 'club'>
+  player: Pick<Player, 'id' | 'first_name' | 'last_name' | 'club' | 'gender'>
 }

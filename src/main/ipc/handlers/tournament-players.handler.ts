@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { getDb } from '../../db/client'
 import { TournamentPlayerRepository } from '../../db/repositories/tournament-player.repo'
+import { ensureSinglesTeamOnAccept } from '../../services/auto-team.service'
 import type { RegistrationStatus } from '@shared/types/tournament-player'
 
 export function registerTournamentPlayersHandler(): void {
@@ -13,9 +14,14 @@ export function registerTournamentPlayersHandler(): void {
   ipcMain.handle('tournamentPlayers:listByTournament', (_e, tournamentId: string) =>
     new TournamentPlayerRepository(getDb()).listByTournament(tournamentId)
   )
-  ipcMain.handle('tournamentPlayers:updateStatus', (_e, id: string, status: RegistrationStatus) =>
-    new TournamentPlayerRepository(getDb()).updateStatus(id, status)
-  )
+  ipcMain.handle('tournamentPlayers:updateStatus', (_e, id: string, status: RegistrationStatus) => {
+    const db = getDb()
+    const result = new TournamentPlayerRepository(db).updateStatus(id, status)
+    if (status === 'accepted') {
+      ensureSinglesTeamOnAccept(db, result.player_id)
+    }
+    return result
+  })
   ipcMain.handle('tournamentPlayers:remove', (_e, id: string) =>
     new TournamentPlayerRepository(getDb()).remove(id)
   )

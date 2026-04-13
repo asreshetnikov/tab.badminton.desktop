@@ -60,6 +60,29 @@
     "required": "This field is required",
     "dateRange": "End date must be after or equal to start date"
   },
+  "tournamentTeams": {
+    "title": "Tournament Teams",
+    "add": "Add Teams",
+    "addDialogTitle": "Add Teams",
+    "search": "Search by name, category or player...",
+    "selectAll": "Select all",
+    "addSelected": "Add {{count}} team(s)",
+    "empty": {
+      "title": "No teams added",
+      "description": "Select teams from the global registry to participate in this tournament."
+    },
+    "players": "Players",
+    "remove": "Remove",
+    "newPair": "New pair",
+    "newPairTitle": "Create new pair",
+    "player1": "Player 1",
+    "player2": "Player 2",
+    "selectPlayer": "Select player...",
+    "createPair": "Create & register",
+    "noEvents": "No events defined",
+    "noEventsHint": "Create event categories in the tournament settings first.",
+    "noEligibleTeams": "No eligible teams. Create teams matching this event's category first."
+  },
   "registrations": {
     "title": "Player Registrations",
     "add": "Add Players",
@@ -108,6 +131,7 @@
     "club": "Club",
     "clubPlaceholder": "e.g. Spartak",
     "deleteDescription": "Remove \"{{name}}\" from the registry?",
+    "gender": "Gender",
     "importCSV": "Import CSV",
     "importSuccess": "Imported {{count}} player(s)."
   },

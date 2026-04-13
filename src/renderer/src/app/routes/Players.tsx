@@ -4,16 +4,44 @@ import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { api } from '@renderer/lib/api'
 import { useTranslation } from 'react-i18next'
-import type { Player } from '@shared/types/ipc'
+import type { Player, PlayerGender } from '@shared/types/ipc'
 
 interface EditState {
   first_name: string
   last_name: string
   club: string
+  gender: PlayerGender | null
 }
 
 function emptyEdit(): EditState {
-  return { first_name: '', last_name: '', club: '' }
+  return { first_name: '', last_name: '', club: '', gender: null }
+}
+
+function GenderToggle({
+  value,
+  onChange
+}: {
+  value: PlayerGender | null
+  onChange: (v: PlayerGender | null) => void
+}) {
+  return (
+    <div className="flex gap-0.5">
+      {(['M', 'F'] as PlayerGender[]).map((g) => (
+        <button
+          key={g}
+          type="button"
+          onClick={() => onChange(value === g ? null : g)}
+          className={`h-7 w-7 rounded text-xs font-medium transition-colors ${
+            value === g
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted text-muted-foreground hover:bg-muted/80'
+          }`}
+        >
+          {g}
+        </button>
+      ))}
+    </div>
+  )
 }
 
 export function Players() {
@@ -76,7 +104,8 @@ export function Players() {
       const player = await api.players.create({
         first_name: first,
         last_name: last,
-        club: newPlayer.club.trim() || null
+        club: newPlayer.club.trim() || null,
+        gender: newPlayer.gender
       })
       setPlayers((prev) => [...prev, player])
       setNewPlayer(emptyEdit())
@@ -93,7 +122,8 @@ export function Players() {
     setEditState({
       first_name: player.first_name,
       last_name: player.last_name,
-      club: player.club ?? ''
+      club: player.club ?? '',
+      gender: player.gender
     })
   }
 
@@ -108,7 +138,8 @@ export function Players() {
     const updated = await api.players.update(id, {
       first_name: first,
       last_name: last,
-      club: editState.club.trim() || null
+      club: editState.club.trim() || null,
+      gender: editState.gender
     })
     setPlayers((prev) => prev.map((p) => (p.id === id ? updated : p)))
     setEditingId(null)
@@ -163,6 +194,7 @@ export function Players() {
               <th className="pb-2 pr-4 font-medium">{t('players.lastName')}</th>
               <th className="pb-2 pr-4 font-medium">{t('players.firstName')}</th>
               <th className="pb-2 pr-4 font-medium">{t('players.club')}</th>
+              <th className="pb-2 pr-4 w-20 font-medium">{t('players.gender')}</th>
               <th className="pb-2 w-20" />
             </tr>
           </thead>
@@ -196,6 +228,12 @@ export function Players() {
                       className="h-7 text-sm"
                     />
                   </td>
+                  <td className="py-1.5 pr-2">
+                    <GenderToggle
+                      value={editState.gender}
+                      onChange={(g) => setEditState((s) => ({ ...s, gender: g }))}
+                    />
+                  </td>
                   <td className="py-1.5">
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => submitEdit(player.id)}>
@@ -212,6 +250,15 @@ export function Players() {
                   <td className="py-2 pr-4">{player.last_name}</td>
                   <td className="py-2 pr-4">{player.first_name}</td>
                   <td className="py-2 pr-4 text-muted-foreground">{player.club ?? '—'}</td>
+                  <td className="py-2 pr-4">
+                    {player.gender ? (
+                      <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
+                        {player.gender}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </td>
                   <td className="py-2">
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEditing(player)}>
@@ -251,6 +298,12 @@ export function Players() {
                     onChange={(e) => setNewPlayer((s) => ({ ...s, club: e.target.value }))}
                     placeholder={t('players.clubPlaceholder')}
                     className="h-7 text-sm"
+                  />
+                </td>
+                <td className="py-1.5 pr-2">
+                  <GenderToggle
+                    value={newPlayer.gender}
+                    onChange={(g) => setNewPlayer((s) => ({ ...s, gender: g }))}
                   />
                 </td>
                 <td className="py-1.5">

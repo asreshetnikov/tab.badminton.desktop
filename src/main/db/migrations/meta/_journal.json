@@ -50,6 +50,27 @@
       "when": 1776072414118,
       "tag": "0006_majestic_bug",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1776073513678,
+      "tag": "0007_demonic_forge",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1776073986161,
+      "tag": "0008_wealthy_anita_blake",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1776074857809,
+      "tag": "0009_illegal_gladiator",
+      "breakpoints": true
     }
   ]
 }

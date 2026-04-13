@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Pencil, Trash2, Users } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, Users, Shield } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -109,6 +109,10 @@ export function TournamentDetail() {
           <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/players`)}>
             <Users className="mr-1.5 h-3.5 w-3.5" />
             {t('registrations.title')}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/teams`)}>
+            <Shield className="mr-1.5 h-3.5 w-3.5" />
+            {t('tournamentTeams.title')}
           </Button>
           <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />

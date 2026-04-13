@@ -133,7 +133,7 @@
 - **Commit:** `feat: add tournament player registrations screen`
 
 ### Шаг 16. Команды турнира (tournament_teams)
-- [ ] Схема: `tournament_teams` (id, tournament_id, team_id)
+- [x] Схема: `tournament_teams` (id, tournament_id, team_id)
 - `TournamentTeamRepository` + IPC handler
 - Маршрут `/tournaments/:id/teams` — выбор команд из реестра для участия в турнире
 - **Результат:** организатор формирует состав участников турнира из зарегистрированных команд

@@ -6,17 +6,19 @@ import type { Venue, CreateVenueDTO, UpdateVenueDTO } from './venue'
 import type { Tournament, CreateTournamentDTO, UpdateTournamentDTO } from './tournament'
 import type { Court, CreateCourtDTO, UpdateCourtDTO } from './court'
 import type { Event, EventCategory, CreateEventDTO, UpdateEventDTO } from './event'
-import type { Player, CreatePlayerDTO, UpdatePlayerDTO } from './player'
+import type { Player, PlayerGender, CreatePlayerDTO, UpdatePlayerDTO } from './player'
 import type { TeamWithPlayers, CreateTeamDTO } from './team'
 import type { TournamentPlayerWithPlayer, RegistrationStatus } from './tournament-player'
+import type { TournamentTeamWithTeam } from './tournament-team'
 
 export type { Venue, CreateVenueDTO, UpdateVenueDTO }
 export type { Tournament, CreateTournamentDTO, UpdateTournamentDTO }
 export type { Court, CreateCourtDTO, UpdateCourtDTO }
 export type { Event, EventCategory, CreateEventDTO, UpdateEventDTO }
-export type { Player, CreatePlayerDTO, UpdatePlayerDTO }
+export type { Player, PlayerGender, CreatePlayerDTO, UpdatePlayerDTO }
 export type { TeamWithPlayers, CreateTeamDTO }
 export type { TournamentPlayerWithPlayer, RegistrationStatus }
+export type { TournamentTeamWithTeam }
 
 export interface AppAPI {
   ping(): Promise<string>
@@ -49,6 +51,13 @@ export interface AppAPI {
     listByTournament(tournamentId: string): Promise<Event[]>
     update(id: string, data: UpdateEventDTO): Promise<Event>
     delete(id: string): Promise<void>
+  }
+
+  tournamentTeams: {
+    add(tournamentId: string, eventId: string, teamId: string): Promise<TournamentTeamWithTeam>
+    addMany(tournamentId: string, eventId: string, teamIds: string[]): Promise<TournamentTeamWithTeam[]>
+    listByTournament(tournamentId: string): Promise<TournamentTeamWithTeam[]>
+    remove(id: string): Promise<void>
   }
 
   tournamentPlayers: {

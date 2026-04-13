@@ -11,7 +11,7 @@ export class PlayerRepository {
     const id = randomUUID()
     this.db
       .insert(schema.players)
-      .values({ id, first_name: data.first_name, last_name: data.last_name, club: data.club ?? null })
+      .values({ id, first_name: data.first_name, last_name: data.last_name, club: data.club ?? null, gender: data.gender ?? null })
       .run()
     return this.getByIdOrThrow(id)
   }

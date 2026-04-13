@@ -26,7 +26,8 @@ export const players = sqliteTable('players', {
   id: text('id').primaryKey(),
   first_name: text('first_name').notNull(),
   last_name: text('last_name').notNull(),
-  club: text('club')
+  club: text('club'),
+  gender: text('gender', { enum: ['M', 'F'] })
 })
 
 export const events = sqliteTable('events', {
@@ -55,6 +56,19 @@ export const teams = sqliteTable('teams', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
   category: text('category', { enum: ['MS', 'WS', 'MD', 'WD', 'XD'] }).notNull()
+})
+
+export const tournament_teams = sqliteTable('tournament_teams', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id')
+    .notNull()
+    .references(() => tournaments.id, { onDelete: 'cascade' }),
+  event_id: text('event_id')
+    .notNull()
+    .references(() => events.id, { onDelete: 'cascade' }),
+  team_id: text('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' })
 })
 
 export const team_players = sqliteTable('team_players', {
