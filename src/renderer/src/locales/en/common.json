@@ -60,6 +60,20 @@
     "required": "This field is required",
     "dateRange": "End date must be after or equal to start date"
   },
+  "teams": {
+    "title": "Teams",
+    "newTeam": "New Team",
+    "empty": {
+      "title": "No teams yet",
+      "description": "Create teams from registered players."
+    },
+    "category": "Category",
+    "playerOne": "Player 1",
+    "playerTwo": "Player 2",
+    "player": "Player",
+    "selectPlayer": "Select player...",
+    "deleteDescription": "Remove team \"{{name}}\"?"
+  },
   "players": {
     "title": "Players",
     "newPlayer": "New Player",

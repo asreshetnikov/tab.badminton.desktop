@@ -34,6 +34,13 @@ const api: AppAPI = {
     delete: (id) => ipcRenderer.invoke('events:delete', id)
   },
 
+  teams: {
+    create: (data) => ipcRenderer.invoke('teams:create', data),
+    list: () => ipcRenderer.invoke('teams:list'),
+    update: (id, data) => ipcRenderer.invoke('teams:update', id, data),
+    delete: (id) => ipcRenderer.invoke('teams:delete', id)
+  },
+
   players: {
     create: (data) => ipcRenderer.invoke('players:create', data),
     getById: (id) => ipcRenderer.invoke('players:getById', id),

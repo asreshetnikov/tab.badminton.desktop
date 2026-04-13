@@ -112,14 +112,14 @@
 - **Commit:** `feat: add global players registry screen`
 
 ### Шаг 13. Импорт игроков из CSV
-- [ ] `ExportService.importPlayersCSV` (парсинг в main process)
+- [x] `ExportService.importPlayersCSV` (парсинг в main process)
 - UI: кнопка «Import CSV» на экране `/players`
 - **Тесты:** unit-тест парсинга CSV
 - **Результат:** можно загрузить список игроков из файла за один шаг
 - **Commit:** `feat: add CSV import for players`
 
 ### Шаг 14. Глобальный реестр команд
-- [ ] Схема: `teams` (id, name, category), `team_players` (id, team_id, player_id, order)
+- [x] Схема: `teams` (id, name, category), `team_players` (id, team_id, player_id, order)
 - `TeamRepository` + IPC handler
 - Маршрут `/teams` — список команд, создание (выбор 1 или 2 игроков из реестра)
 - **Результат:** можно создавать одиночные и парные команды из зарегистрированных игроков

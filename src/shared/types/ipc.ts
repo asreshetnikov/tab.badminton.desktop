@@ -7,12 +7,14 @@ import type { Tournament, CreateTournamentDTO, UpdateTournamentDTO } from './tou
 import type { Court, CreateCourtDTO, UpdateCourtDTO } from './court'
 import type { Event, EventCategory, CreateEventDTO, UpdateEventDTO } from './event'
 import type { Player, CreatePlayerDTO, UpdatePlayerDTO } from './player'
+import type { TeamWithPlayers, CreateTeamDTO } from './team'
 
 export type { Venue, CreateVenueDTO, UpdateVenueDTO }
 export type { Tournament, CreateTournamentDTO, UpdateTournamentDTO }
 export type { Court, CreateCourtDTO, UpdateCourtDTO }
 export type { Event, EventCategory, CreateEventDTO, UpdateEventDTO }
 export type { Player, CreatePlayerDTO, UpdatePlayerDTO }
+export type { TeamWithPlayers, CreateTeamDTO }
 
 export interface AppAPI {
   ping(): Promise<string>
@@ -44,6 +46,13 @@ export interface AppAPI {
     create(data: CreateEventDTO): Promise<Event>
     listByTournament(tournamentId: string): Promise<Event[]>
     update(id: string, data: UpdateEventDTO): Promise<Event>
+    delete(id: string): Promise<void>
+  }
+
+  teams: {
+    create(data: CreateTeamDTO): Promise<TeamWithPlayers>
+    list(): Promise<TeamWithPlayers[]>
+    update(id: string, data: { name: string }): Promise<TeamWithPlayers>
     delete(id: string): Promise<void>
   }
 

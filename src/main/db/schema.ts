@@ -39,6 +39,23 @@ export const events = sqliteTable('events', {
   max_entries: integer('max_entries')
 })
 
+export const teams = sqliteTable('teams', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  category: text('category', { enum: ['MS', 'WS', 'MD', 'WD', 'XD'] }).notNull()
+})
+
+export const team_players = sqliteTable('team_players', {
+  id: text('id').primaryKey(),
+  team_id: text('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  player_id: text('player_id')
+    .notNull()
+    .references(() => players.id, { onDelete: 'cascade' }),
+  position: integer('position').notNull()
+})
+
 export const courts = sqliteTable('courts', {
   id: text('id').primaryKey(),
   tournament_id: text('tournament_id')
