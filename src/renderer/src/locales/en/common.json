@@ -71,7 +71,9 @@
     "lastName": "Last Name",
     "club": "Club",
     "clubPlaceholder": "e.g. Spartak",
-    "deleteDescription": "Remove \"{{name}}\" from the registry?"
+    "deleteDescription": "Remove \"{{name}}\" from the registry?",
+    "importCSV": "Import CSV",
+    "importSuccess": "Imported {{count}} player(s)."
   },
   "events": {
     "title": "Categories",

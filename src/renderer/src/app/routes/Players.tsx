@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, Check, X, Upload } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { api } from '@renderer/lib/api'
@@ -21,6 +21,8 @@ export function Players() {
   const [players, setPlayers] = useState<Player[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  const [isImporting, setIsImporting] = useState(false)
+
   // inline add form
   const [adding, setAdding] = useState(false)
   const [newPlayer, setNewPlayer] = useState<EditState>(emptyEdit())
@@ -36,6 +38,22 @@ export function Players() {
       setIsLoading(false)
     })
   }, [])
+
+  // ── Import CSV ───────────────────────────────────────────────────────────
+
+  async function handleImportCSV() {
+    setIsImporting(true)
+    try {
+      const result = await api.players.importCSV()
+      if (!result.canceled && result.imported > 0) {
+        const updated = await api.players.list()
+        setPlayers(updated)
+        alert(t('players.importSuccess', { count: result.imported }))
+      }
+    } finally {
+      setIsImporting(false)
+    }
+  }
 
   // ── Add ──────────────────────────────────────────────────────────────────
 
@@ -115,12 +133,18 @@ export function Players() {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-xl font-semibold">{t('players.title')}</h1>
-        {!adding && (
-          <Button onClick={startAdding}>
-            <Plus className="mr-1.5 h-4 w-4" />
-            {t('players.newPlayer')}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleImportCSV} disabled={isImporting}>
+            <Upload className="mr-1.5 h-4 w-4" />
+            {t('players.importCSV')}
           </Button>
-        )}
+          {!adding && (
+            <Button onClick={startAdding}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              {t('players.newPlayer')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {players.length === 0 && !adding ? (

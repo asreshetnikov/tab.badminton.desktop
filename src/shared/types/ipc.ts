@@ -53,5 +53,6 @@ export interface AppAPI {
     list(): Promise<Player[]>
     update(id: string, data: UpdatePlayerDTO): Promise<Player>
     delete(id: string): Promise<void>
+    importCSV(): Promise<{ imported: number; canceled: boolean }>
   }
 }

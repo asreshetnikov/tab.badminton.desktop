@@ -39,7 +39,8 @@ const api: AppAPI = {
     getById: (id) => ipcRenderer.invoke('players:getById', id),
     list: () => ipcRenderer.invoke('players:list'),
     update: (id, data) => ipcRenderer.invoke('players:update', id, data),
-    delete: (id) => ipcRenderer.invoke('players:delete', id)
+    delete: (id) => ipcRenderer.invoke('players:delete', id),
+    importCSV: () => ipcRenderer.invoke('players:importCSV')
   }
 }
 
