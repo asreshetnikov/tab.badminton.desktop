@@ -11,7 +11,7 @@ import type { TeamWithPlayers, CreateTeamDTO } from './team'
 import type { TournamentPlayerWithPlayer, RegistrationStatus } from './tournament-player'
 import type { TournamentTeamWithTeam } from './tournament-team'
 import type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO } from './round'
-import type { RoundTeamWithTeam } from './round-team'
+import type { RoundTeamWithTeam, RoundTableRowWithTeam } from './round-team'
 import type { MatchWithTeams } from './match'
 
 export type { Venue, CreateVenueDTO, UpdateVenueDTO }
@@ -23,7 +23,7 @@ export type { TeamWithPlayers, CreateTeamDTO }
 export type { TournamentPlayerWithPlayer, RegistrationStatus }
 export type { TournamentTeamWithTeam }
 export type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO }
-export type { RoundTeamWithTeam }
+export type { RoundTeamWithTeam, RoundTableRowWithTeam }
 export type { MatchWithTeams }
 
 export interface AppAPI {
@@ -92,6 +92,7 @@ export interface AppAPI {
     add(roundId: string, teamId: string): Promise<RoundTeamWithTeam>
     addMany(roundId: string, teamIds: string[]): Promise<RoundTeamWithTeam[]>
     listByRound(roundId: string): Promise<RoundTeamWithTeam[]>
+    listTableByRound(roundId: string): Promise<RoundTableRowWithTeam[]>
     remove(id: string): Promise<void>
   }
 

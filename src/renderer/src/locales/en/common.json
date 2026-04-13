@@ -181,7 +181,30 @@
     "generate": "Generate Matches",
     "regenerate": "Regenerate",
     "regenerateTitle": "Regenerate matches?",
-    "regenerateDescription": "This will delete all existing matches for this round and generate new ones. Any results entered will be lost."
+    "regenerateDescription": "This will delete all existing matches for this round and generate new ones. Any results entered will be lost.",
+    "viewGroups": "View Groups"
+  },
+  "groups": {
+    "matches": "Matches",
+    "standings": "Standings",
+    "noStandings": "No teams in this round yet.",
+    "col": {
+      "team": "Team",
+      "P": "P",
+      "W": "W",
+      "L": "L",
+      "SW": "SW",
+      "SL": "SL",
+      "PW": "PW",
+      "PL": "PL",
+      "played": "Played",
+      "wins": "Wins",
+      "losses": "Losses",
+      "setsWon": "Sets Won",
+      "setsLost": "Sets Lost",
+      "pointsWon": "Points Won",
+      "pointsLost": "Points Lost"
+    }
   },
   "matches": {
     "status": {

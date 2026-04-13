@@ -15,4 +15,7 @@ export function registerRoundTeamsHandler(): void {
   ipcMain.handle('roundTeams:remove', (_e, id: string) =>
     new RoundTeamRepository(getDb()).remove(id)
   )
+  ipcMain.handle('roundTeams:listTableByRound', (_e, roundId: string) =>
+    new RoundTeamRepository(getDb()).listTableWithTeamsByRound(roundId)
+  )
 }

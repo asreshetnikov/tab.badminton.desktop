@@ -8,6 +8,7 @@ import { Teams } from './app/routes/Teams'
 import { TournamentPlayers } from './app/routes/TournamentPlayers'
 import { TournamentTeams } from './app/routes/TournamentTeams'
 import { TournamentRounds } from './app/routes/TournamentRounds'
+import { GroupsView } from './app/routes/GroupsView'
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -28,6 +29,7 @@ function App() {
           <Route path="/tournaments/:id/players" element={<TournamentPlayers />} />
           <Route path="/tournaments/:id/teams" element={<TournamentTeams />} />
           <Route path="/tournaments/:id/rounds" element={<TournamentRounds />} />
+          <Route path="/tournaments/:id/events/:eid/rounds/:rid/groups" element={<GroupsView />} />
           <Route path="/players" element={<Players />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/settings" element={<Placeholder title="Settings" />} />

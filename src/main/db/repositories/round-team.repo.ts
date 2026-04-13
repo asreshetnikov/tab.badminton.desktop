@@ -2,7 +2,7 @@ import { eq, and } from 'drizzle-orm'
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { randomUUID } from 'crypto'
 import * as schema from '../schema'
-import type { RoundTeamWithTeam, RoundTableRow } from '@shared/types/round-team'
+import type { RoundTeamWithTeam, RoundTableRow, RoundTableRowWithTeam } from '@shared/types/round-team'
 
 export class RoundTeamRepository {
   constructor(private db: BetterSQLite3Database<typeof schema>) {}
@@ -58,6 +58,41 @@ export class RoundTeamRepository {
       .from(schema.round_table)
       .where(eq(schema.round_table.round_id, roundId))
       .all()
+  }
+
+  listTableWithTeamsByRound(roundId: string): RoundTableRowWithTeam[] {
+    const rows = this.db
+      .select({
+        id: schema.round_table.id,
+        round_id: schema.round_table.round_id,
+        team_id: schema.round_table.team_id,
+        wins: schema.round_table.wins,
+        losses: schema.round_table.losses,
+        sets_won: schema.round_table.sets_won,
+        sets_lost: schema.round_table.sets_lost,
+        points_won: schema.round_table.points_won,
+        points_lost: schema.round_table.points_lost,
+        position: schema.round_table.position,
+        team_name: schema.teams.name
+      })
+      .from(schema.round_table)
+      .innerJoin(schema.teams, eq(schema.round_table.team_id, schema.teams.id))
+      .where(eq(schema.round_table.round_id, roundId))
+      .all()
+
+    return rows.map((r) => ({
+      id: r.id,
+      round_id: r.round_id,
+      team_id: r.team_id,
+      wins: r.wins,
+      losses: r.losses,
+      sets_won: r.sets_won,
+      sets_lost: r.sets_lost,
+      points_won: r.points_won,
+      points_lost: r.points_lost,
+      position: r.position,
+      team: { id: r.team_id, name: r.team_name }
+    }))
   }
 
   remove(id: string): void {

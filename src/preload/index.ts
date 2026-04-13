@@ -60,6 +60,7 @@ const api: AppAPI = {
     add: (roundId, teamId) => ipcRenderer.invoke('roundTeams:add', roundId, teamId),
     addMany: (roundId, teamIds) => ipcRenderer.invoke('roundTeams:addMany', roundId, teamIds),
     listByRound: (roundId) => ipcRenderer.invoke('roundTeams:listByRound', roundId),
+    listTableByRound: (roundId) => ipcRenderer.invoke('roundTeams:listTableByRound', roundId),
     remove: (id) => ipcRenderer.invoke('roundTeams:remove', id)
   },
 

@@ -23,3 +23,7 @@ export interface RoundTableRow {
   points_lost: number
   position: number | null
 }
+
+export interface RoundTableRowWithTeam extends RoundTableRow {
+  team: { id: string; name: string }
+}
