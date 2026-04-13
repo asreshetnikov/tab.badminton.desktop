@@ -60,6 +60,20 @@
     "required": "This field is required",
     "dateRange": "End date must be after or equal to start date"
   },
+  "events": {
+    "title": "Categories",
+    "empty": "No categories added yet.",
+    "add": "Add",
+    "maxEntries": "Max entries",
+    "maxEntriesPlaceholder": "Unlimited",
+    "category": {
+      "MS": "Men's Singles",
+      "WS": "Women's Singles",
+      "MD": "Men's Doubles",
+      "WD": "Women's Doubles",
+      "XD": "Mixed Doubles"
+    }
+  },
   "courts": {
     "title": "Courts",
     "empty": "No courts added yet.",

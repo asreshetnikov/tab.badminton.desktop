@@ -1,7 +1,7 @@
 // Database schema — tables are added incrementally, one step at a time.
 // Each change requires running: npm run db:generate
 
-import { sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 
 export const venues = sqliteTable('venues', {
   id: text('id').primaryKey(),
@@ -20,6 +20,16 @@ export const tournaments = sqliteTable('tournaments', {
   }).notNull().default('draft'),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull()
+})
+
+export const events = sqliteTable('events', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id')
+    .notNull()
+    .references(() => tournaments.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  category: text('category', { enum: ['MS', 'WS', 'MD', 'WD', 'XD'] }).notNull(),
+  max_entries: integer('max_entries')
 })
 
 export const courts = sqliteTable('courts', {
