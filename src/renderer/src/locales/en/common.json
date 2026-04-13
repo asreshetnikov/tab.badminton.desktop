@@ -168,7 +168,12 @@
       "description": "Add rounds to define the structure of this event."
     },
     "noEvents": "No events defined",
-    "noEventsHint": "Create event categories in the tournament settings first."
+    "noEventsHint": "Create event categories in the tournament settings first.",
+    "noTeams": "No teams assigned to this round yet.",
+    "addTeams": "Add Teams",
+    "addTeamsTitle": "Add Teams to {{round}}",
+    "addSelected": "Add {{count}} team(s)",
+    "noEligibleTeams": "All registered teams are already in this round."
   },
   "common": {
     "save": "Save",

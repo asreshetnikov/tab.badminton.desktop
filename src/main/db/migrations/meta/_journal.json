@@ -78,6 +78,13 @@
       "when": 1776085716885,
       "tag": "0010_curved_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1776087298487,
+      "tag": "0011_narrow_shinobi_shaw",
+      "breakpoints": true
     }
   ]
 }

@@ -100,3 +100,33 @@ export const courts = sqliteTable('courts', {
     .references(() => tournaments.id, { onDelete: 'cascade' }),
   name: text('name').notNull()
 })
+
+export const round_teams = sqliteTable('round_teams', {
+  id: text('id').primaryKey(),
+  round_id: text('round_id')
+    .notNull()
+    .references(() => rounds.id, { onDelete: 'cascade' }),
+  team_id: text('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  status: text('status', { enum: ['active', 'withdrawn'] }).notNull().default('active'),
+  seed: integer('seed'),
+  checked_in: integer('checked_in', { mode: 'boolean' }).notNull().default(false)
+})
+
+export const round_table = sqliteTable('round_table', {
+  id: text('id').primaryKey(),
+  round_id: text('round_id')
+    .notNull()
+    .references(() => rounds.id, { onDelete: 'cascade' }),
+  team_id: text('team_id')
+    .notNull()
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  wins: integer('wins').notNull().default(0),
+  losses: integer('losses').notNull().default(0),
+  sets_won: integer('sets_won').notNull().default(0),
+  sets_lost: integer('sets_lost').notNull().default(0),
+  points_won: integer('points_won').notNull().default(0),
+  points_lost: integer('points_lost').notNull().default(0),
+  position: integer('position')
+})

@@ -151,7 +151,7 @@
 - **Commit:** `feat: add rounds management per event`
 
 ### Шаг 18. Команды раунда (round_teams) и round_table
-- [ ] Схема: `round_teams` (id, round_id, team_id, status, seed, checked_in), `round_table` (id, round_id, team_id, wins, losses, sets_won, sets_lost, points_won, points_lost, position)
+- [x] Схема: `round_teams` (id, round_id, team_id, status, seed, checked_in), `round_table` (id, round_id, team_id, wins, losses, sets_won, sets_lost, points_won, points_lost, position)
 - `RoundTeamRepository`, `RoundTableRepository` + IPC handlers
 - UI: добавление команд в раунд из состава tournament_teams
 - **Результат:** в раунде можно зарегистрировать участников, таблица инициализируется нулями
