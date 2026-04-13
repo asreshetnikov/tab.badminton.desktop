@@ -71,6 +71,13 @@
       "when": 1776074857809,
       "tag": "0009_illegal_gladiator",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1776085716885,
+      "tag": "0010_curved_vector",
+      "breakpoints": true
     }
   ]
 }

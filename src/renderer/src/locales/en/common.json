@@ -155,6 +155,21 @@
     "namePlaceholder": "e.g. Court 1",
     "add": "Add"
   },
+  "rounds": {
+    "title": "Rounds",
+    "add": "Add Round",
+    "namePlaceholder": "e.g. Group Stage, Play-off, Main Draw",
+    "type": {
+      "round_robin": "Round Robin",
+      "playoff": "Playoff"
+    },
+    "empty": {
+      "title": "No rounds yet",
+      "description": "Add rounds to define the structure of this event."
+    },
+    "noEvents": "No events defined",
+    "noEventsHint": "Create event categories in the tournament settings first."
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

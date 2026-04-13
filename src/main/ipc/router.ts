@@ -7,6 +7,7 @@ import { registerPlayersHandler } from './handlers/players.handler'
 import { registerTeamsHandler } from './handlers/teams.handler'
 import { registerTournamentPlayersHandler } from './handlers/tournament-players.handler'
 import { registerTournamentTeamsHandler } from './handlers/tournament-teams.handler'
+import { registerRoundsHandler } from './handlers/rounds.handler'
 
 export function registerIpcHandlers(): void {
   registerPingHandler()
@@ -18,4 +19,5 @@ export function registerIpcHandlers(): void {
   registerTeamsHandler()
   registerTournamentPlayersHandler()
   registerTournamentTeamsHandler()
+  registerRoundsHandler()
 }

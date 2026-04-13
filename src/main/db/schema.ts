@@ -82,6 +82,17 @@ export const team_players = sqliteTable('team_players', {
   position: integer('position').notNull()
 })
 
+export const rounds = sqliteTable('rounds', {
+  id: text('id').primaryKey(),
+  event_id: text('event_id')
+    .notNull()
+    .references(() => events.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  type: text('type', { enum: ['round_robin', 'playoff'] }).notNull(),
+  order: integer('order').notNull(),
+  qualification_rule: text('qualification_rule')
+})
+
 export const courts = sqliteTable('courts', {
   id: text('id').primaryKey(),
   tournament_id: text('tournament_id')

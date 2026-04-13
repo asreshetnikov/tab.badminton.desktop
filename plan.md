@@ -144,7 +144,7 @@
 ## Этап 3. Групповой этап (Round Robin)
 
 ### Шаг 17. Раунды турнира
-- [ ] Схема: `rounds` (id, event_id, name, type, order, qualification_rule JSON)
+- [x] Схема: `rounds` (id, event_id, name, type, order, qualification_rule JSON)
 - `RoundRepository` + IPC handler
 - UI: создание раундов для категории (тип: round_robin / playoff)
 - **Результат:** к каждой категории можно добавить раунды разного типа

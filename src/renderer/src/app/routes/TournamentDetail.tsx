@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Pencil, Trash2, Users, Shield } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, Users, Shield, ListTree } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -92,7 +92,8 @@ export function TournamentDetail() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center gap-3">
+      {/* Row 1: title + actions */}
+      <div className="mb-3 flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -105,24 +106,30 @@ export function TournamentDetail() {
         >
           {t(`tournament.status.${tournament.status}`)}
         </span>
-        <div className="ml-auto flex gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/players`)}>
-            <Users className="mr-1.5 h-3.5 w-3.5" />
-            {t('registrations.title')}
+        <div className="ml-auto flex gap-1">
+          <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} title={t('common.edit')}>
+            <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/teams`)}>
-            <Shield className="mr-1.5 h-3.5 w-3.5" />
-            {t('tournamentTeams.title')}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
-            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-            {t('common.edit')}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setDeleteOpen(true)}>
-            <Trash2 className="mr-1.5 h-3.5 w-3.5 text-destructive" />
-            <span className="text-destructive">{t('common.delete')}</span>
+          <Button variant="ghost" size="icon" onClick={() => setDeleteOpen(true)} title={t('common.delete')}>
+            <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
         </div>
+      </div>
+
+      {/* Row 2: section navigation */}
+      <div className="mb-6 ml-11 flex gap-2">
+        <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/players`)}>
+          <Users className="mr-1.5 h-3.5 w-3.5" />
+          {t('registrations.title')}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/teams`)}>
+          <Shield className="mr-1.5 h-3.5 w-3.5" />
+          {t('tournamentTeams.title')}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/rounds`)}>
+          <ListTree className="mr-1.5 h-3.5 w-3.5" />
+          {t('rounds.title')}
+        </Button>
       </div>
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">

@@ -6,14 +6,14 @@ describe('parsePlayersCSV', () => {
     const csv = 'Petrov,Ivan\nIvanova,Anna,Spartak'
     const result = parsePlayersCSV(csv)
     expect(result).toHaveLength(2)
-    expect(result[0]).toEqual({ last_name: 'Petrov', first_name: 'Ivan', club: null })
-    expect(result[1]).toEqual({ last_name: 'Ivanova', first_name: 'Anna', club: 'Spartak' })
+    expect(result[0]).toEqual({ last_name: 'Petrov', first_name: 'Ivan', club: null, gender: null })
+    expect(result[1]).toEqual({ last_name: 'Ivanova', first_name: 'Anna', club: 'Spartak', gender: null })
   })
 
   it('parses semicolon-separated rows', () => {
     const csv = 'Petrov;Ivan;Dynamo'
     const result = parsePlayersCSV(csv)
-    expect(result[0]).toEqual({ last_name: 'Petrov', first_name: 'Ivan', club: 'Dynamo' })
+    expect(result[0]).toEqual({ last_name: 'Petrov', first_name: 'Ivan', club: 'Dynamo', gender: null })
   })
 
   it('skips english header row', () => {
@@ -39,7 +39,7 @@ describe('parsePlayersCSV', () => {
   it('strips quotes from cells', () => {
     const csv = '"Petrov","Ivan","Spartak"'
     const result = parsePlayersCSV(csv)
-    expect(result[0]).toEqual({ last_name: 'Petrov', first_name: 'Ivan', club: 'Spartak' })
+    expect(result[0]).toEqual({ last_name: 'Petrov', first_name: 'Ivan', club: 'Spartak', gender: null })
   })
 
   it('returns empty array for empty content', () => {
