@@ -4,9 +4,11 @@
 
 import type { Venue, CreateVenueDTO, UpdateVenueDTO } from './venue'
 import type { Tournament, CreateTournamentDTO, UpdateTournamentDTO } from './tournament'
+import type { Court, CreateCourtDTO, UpdateCourtDTO } from './court'
 
 export type { Venue, CreateVenueDTO, UpdateVenueDTO }
 export type { Tournament, CreateTournamentDTO, UpdateTournamentDTO }
+export type { Court, CreateCourtDTO, UpdateCourtDTO }
 
 export interface AppAPI {
   ping(): Promise<string>
@@ -24,6 +26,13 @@ export interface AppAPI {
     getById(id: string): Promise<Tournament | undefined>
     list(): Promise<Tournament[]>
     update(id: string, data: UpdateTournamentDTO): Promise<Tournament>
+    delete(id: string): Promise<void>
+  }
+
+  courts: {
+    create(data: CreateCourtDTO): Promise<Court>
+    listByTournament(tournamentId: string): Promise<Court[]>
+    update(id: string, data: UpdateCourtDTO): Promise<Court>
     delete(id: string): Promise<void>
   }
 }

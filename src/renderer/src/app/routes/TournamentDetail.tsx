@@ -13,6 +13,7 @@ import {
 import { api } from '@renderer/lib/api'
 import { statusClass } from '@renderer/features/tournament/status'
 import { TournamentForm } from '@renderer/features/tournament/TournamentForm'
+import { CourtList } from '@renderer/features/court/CourtList'
 import { formatDate } from '@renderer/lib/format'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
@@ -125,6 +126,8 @@ export function TournamentDetail() {
         <dt className="font-medium text-muted-foreground">{t('tournamentDetail.dateEnd')}</dt>
         <dd>{formatDate(tournament.date_end)}</dd>
       </dl>
+
+      <CourtList tournamentId={tournament.id} />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>

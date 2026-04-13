@@ -21,3 +21,11 @@ export const tournaments = sqliteTable('tournaments', {
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull()
 })
+
+export const courts = sqliteTable('courts', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id')
+    .notNull()
+    .references(() => tournaments.id, { onDelete: 'cascade' }),
+  name: text('name').notNull()
+})

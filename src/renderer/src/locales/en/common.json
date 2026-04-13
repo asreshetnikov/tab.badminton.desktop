@@ -60,6 +60,12 @@
     "required": "This field is required",
     "dateRange": "End date must be after or equal to start date"
   },
+  "courts": {
+    "title": "Courts",
+    "empty": "No courts added yet.",
+    "namePlaceholder": "e.g. Court 1",
+    "add": "Add"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

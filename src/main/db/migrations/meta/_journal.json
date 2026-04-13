@@ -15,6 +15,13 @@
       "when": 1776022466498,
       "tag": "0001_grey_maggott",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1776069526802,
+      "tag": "0002_medical_plazm",
+      "breakpoints": true
     }
   ]
 }

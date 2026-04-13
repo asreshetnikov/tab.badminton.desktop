@@ -79,7 +79,7 @@
 - **Commit:** `feat: add tournament creation form with venue`
 
 ### Шаг 9. Страница турнира (overview)
-- [ ] Маршрут `/tournaments/:id` — просмотр деталей
+- [x] Маршрут `/tournaments/:id` — просмотр деталей
 - Редактирование полей турнира
 - Удаление турнира (с подтверждением)
 - Статус-бейдж
@@ -87,7 +87,7 @@
 - **Commit:** `feat: add tournament overview screen with edit and delete`
 
 ### Шаг 10. Корты турнира
-- [ ] Схема: `courts` (id, tournament_id, name)
+- [x] Схема: `courts` (id, tournament_id, name)
 - `CourtRepository` + IPC handler
 - UI: управление кортами на странице турнира
 - **Результат:** к турниру можно привязать корты
