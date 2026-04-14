@@ -255,3 +255,100 @@ describe('generateBracket', () => {
     }
   })
 })
+
+// ─── Group seeding tests ───────────────────────────────────────────────────────
+// These tests verify that when teams from different groups are seeded
+// (group A leader = seed 1, group B leader = seed 2, etc.), the bracket
+// places them correctly so they can only meet in the final.
+
+describe('generateBracket - group seeding placement', () => {
+  it('group leaders from 2 groups (seeds 1 and 2) land in opposite halves', () => {
+    const { db, roundId, addTeam } = setup()
+    const groupALeader = addTeam('A1', 1)
+    const groupBLeader = addTeam('B1', 2)
+    addTeam('A2', 3)
+    addTeam('B2', 4)
+
+    const matches = generateBracket(db, roundId)
+    const r1 = matches.filter((m) => m.left_match_id === null)
+
+    const matchA = r1.find((m) => m.team1_id === groupALeader || m.team2_id === groupALeader)!
+    const matchB = r1.find((m) => m.team1_id === groupBLeader || m.team2_id === groupBLeader)!
+
+    // Different first-round matches → different semi-finals → can only meet in the final
+    expect(matchA.id).not.toBe(matchB.id)
+    expect(matchA.win_match_id).not.toBe(matchB.win_match_id)
+  })
+
+  it('no first-round match pairs two group leaders (seeds 1 and 2)', () => {
+    const { db, roundId, addTeam } = setup()
+    const groupALeader = addTeam('A1', 1)
+    const groupBLeader = addTeam('B1', 2)
+    addTeam('A2', 3)
+    addTeam('B2', 4)
+
+    const matches = generateBracket(db, roundId)
+    const r1 = matches.filter((m) => m.left_match_id === null)
+
+    const pairedWithLeader = r1.find(
+      (m) =>
+        (m.team1_id === groupALeader || m.team2_id === groupALeader) &&
+        (m.team1_id === groupBLeader || m.team2_id === groupBLeader)
+    )
+    expect(pairedWithLeader).toBeUndefined()
+  })
+
+  it('4 groups with 2 qualifiers each → 8-bracket, no two group leaders share a semi-final', () => {
+    // Seeds: A1=1, B1=2, C1=3, D1=4, A2=5, B2=6, C2=7, D2=8
+    // buildSeedingOrder(8) = [1,8,4,5,2,7,3,6]
+    // R1 matches: 1v8, 4v5, 2v7, 3v6 → all cross-group ✓
+    // SFs: winner(1v8) vs winner(4v5), winner(2v7) vs winner(3v6)
+    // SF1 involves groups A,D; SF2 involves groups B,C → no two leaders share a SF
+    const { db, roundId, addTeam } = setup()
+    const leaders: string[] = []
+    for (let g = 0; g < 4; g++) {
+      leaders.push(addTeam(`G${g}L1`, g + 1))       // seeds 1-4: group leaders
+      addTeam(`G${g}L2`, g + 5)                       // seeds 5-8: group runners-up
+    }
+
+    const matches = generateBracket(db, roundId)
+    const semis = matches.filter((m) => m.left_match_id !== null && m.win_match_id !== null)
+
+    for (const semi of semis) {
+      // Collect all R1 matches feeding into this semi
+      const feedingR1 = matches.filter(
+        (m) => m.left_match_id === null && m.win_match_id === semi.id
+      )
+      const teamsInSemiPath = new Set(
+        feedingR1.flatMap((m) => [m.team1_id, m.team2_id]).filter(Boolean)
+      )
+      const leadersInSemiPath = leaders.filter((l) => teamsInSemiPath.has(l))
+      // Each semi-final path should contain at most 1 group leader (seeds 1-4)
+      expect(leadersInSemiPath.length).toBeLessThanOrEqual(1)
+    }
+  })
+
+  it('group runner-up (seed 3) faces group leader (seed 2) in R1, not own group leader (seed 1)', () => {
+    // 2 groups: A1=seed1, B1=seed2, A2=seed3, B2=seed4
+    // buildSeedingOrder(4)=[1,4,2,3]: match0: seed1 vs seed4 (A1 vs B2), match1: seed2 vs seed3 (B1 vs A2)
+    // A2 (seed3) faces B1 (seed2), NOT A1 (seed1) → cross-group in R1
+    const { db, roundId, addTeam } = setup()
+    const groupALeader = addTeam('A1', 1)
+    const groupBLeader = addTeam('B1', 2)
+    const groupARunner = addTeam('A2', 3)
+    addTeam('B2', 4)
+
+    const matches = generateBracket(db, roundId)
+    const r1 = matches.filter((m) => m.left_match_id === null)
+
+    const matchWithA2 = r1.find(
+      (m) => m.team1_id === groupARunner || m.team2_id === groupARunner
+    )!
+    const opponentOfA2 = matchWithA2.team1_id === groupARunner
+      ? matchWithA2.team2_id
+      : matchWithA2.team1_id
+
+    expect(opponentOfA2).toBe(groupBLeader)
+    expect(opponentOfA2).not.toBe(groupALeader)
+  })
+})

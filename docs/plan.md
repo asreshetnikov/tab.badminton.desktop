@@ -190,12 +190,12 @@
 - **Результат:** IPC-вызов создаёт структуру playoff bracket в БД
 - **Commit:** `feat: add PlayoffService.generateBracket with bracket tree and tests`
 
-### Шаг 23. Выход из групп (seedFromGroups)
-- [ ] `PlayoffService.seedFromGroups(roundId, qualifiers[])` — извлечение квалифицировавшихся по qualification_rule, расстановка в bracket
-- UI: на экране раунда — кнопка «Generate Playoff» с выбором правила выхода (top 1 / top 2)
-- **Тесты:** unit-тесты seedFromGroups: лидеры из разных групп попадают в разные части сетки
-- **Результат:** победители групп автоматически заносятся в playoff bracket
-- **Commit:** `feat: add PlayoffService.seedFromGroups with qualification rules and tests`
+### Шаг 23. Экран плей-офф раунда — Generate Bracket
+- [x] UI: на экране раунда (GroupsView) для типа `playoff` — кнопка «Generate Bracket», список матчей сгруппированный по раундам (Final / Semifinals / Quarterfinals / Round N)
+- Кнопка «Regenerate» с подтверждением — удаляет матчи и генерирует заново
+- **Тесты:** unit-тесты seeding: лидеры из разных групп (seed 1 и seed 2) попадают в разные половины сетки и не встречаются до финала
+- **Результат:** организатор видит матчи плей-офф и может вводить результаты
+- **Commit:** `feat: add playoff bracket UI with group seeding tests`
 
 ### Шаг 24. Экран playoff bracket
 - [ ] Маршрут `/tournaments/:id/events/:eid/rounds/:rid/playoff`

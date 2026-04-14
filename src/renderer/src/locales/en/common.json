@@ -179,10 +179,19 @@
     "noMatches": "No matches generated yet.",
     "tour": "Tour {{n}}",
     "generate": "Generate Matches",
+    "generateBracket": "Generate Bracket",
     "regenerate": "Regenerate",
     "regenerateTitle": "Regenerate matches?",
     "regenerateDescription": "This will delete all existing matches for this round and generate new ones. Any results entered will be lost.",
+    "regenerateBracketTitle": "Regenerate bracket?",
+    "regenerateBracketDescription": "This will delete all existing bracket matches and regenerate them. Any results entered will be lost.",
     "viewGroups": "View Groups"
+  },
+  "playoffs": {
+    "final": "Final",
+    "semifinals": "Semifinals",
+    "quarterfinals": "Quarterfinals",
+    "round": "Round {{n}}"
   },
   "groups": {
     "matches": "Matches",

@@ -236,6 +236,35 @@ export function GroupsView() {
     }
   }
 
+  // ─── Playoff bracket generation ───────────────────────────────────────────
+
+  const [isGeneratingBracket, setIsGeneratingBracket] = useState(false)
+  const [regenBracketConfirmOpen, setRegenBracketConfirmOpen] = useState(false)
+
+  async function handleGenerateBracket() {
+    if (!rid) return
+    setIsGeneratingBracket(true)
+    try {
+      const generated = await api.matches.generatePlayoff(rid)
+      setMatches(generated)
+    } finally {
+      setIsGeneratingBracket(false)
+    }
+  }
+
+  async function handleRegenBracket() {
+    if (!rid) return
+    setRegenBracketConfirmOpen(false)
+    setIsGeneratingBracket(true)
+    try {
+      await api.matches.deleteByRound(rid)
+      const generated = await api.matches.generatePlayoff(rid)
+      setMatches(generated)
+    } finally {
+      setIsGeneratingBracket(false)
+    }
+  }
+
   // ─── Render ────────────────────────────────────────────────────────────────
 
   if (isLoading) {
@@ -244,7 +273,7 @@ export function GroupsView() {
 
   const isRoundRobin = round?.type === 'round_robin'
 
-  // Group matches by tour
+  // Group matches by tour (round_robin)
   const byTour = matches.reduce<Record<number, MatchWithTeams[]>>((acc, m) => {
     const tour = m.tour ?? 1
     acc[tour] = acc[tour] ?? []
@@ -252,6 +281,9 @@ export function GroupsView() {
     return acc
   }, {})
   const tourNumbers = Object.keys(byTour).map(Number).sort((a, b) => a - b)
+
+  // Group playoff matches by bracket level (first round → final)
+  const playoffGroups = getPlayoffGroups(matches, t)
 
   const sortedTeams = roundTeams.slice().sort((a, b) => a.team.name.localeCompare(b.team.name))
 
@@ -353,14 +385,14 @@ export function GroupsView() {
             )}
           </section>
 
-          {/* Matches (round_robin only) */}
-          {isRoundRobin && (
-            <section>
-              <div className="mb-3 flex items-center gap-3">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t('groups.matches')}
-                </h2>
-                {matches.length === 0 ? (
+          {/* Matches */}
+          <section>
+            <div className="mb-3 flex items-center gap-3">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('groups.matches')}
+              </h2>
+              {isRoundRobin ? (
+                matches.length === 0 ? (
                   <Button
                     size="sm"
                     variant="outline"
@@ -382,52 +414,65 @@ export function GroupsView() {
                     <RefreshCw className="mr-1 h-3 w-3" />
                     {t('rounds.regenerate')}
                   </Button>
-                )}
-              </div>
-              {matches.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t('rounds.noMatches')}</p>
+                )
               ) : (
-                <div className="space-y-5">
-                  {tourNumbers.map((tour) => (
-                    <div key={tour}>
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">
-                        {t('rounds.tour', { n: tour })}
-                      </p>
-                      <div className="space-y-1">
-                        {byTour[tour].map((m) => (
-                          <div
-                            key={m.id}
-                            className="group/match flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 text-sm hover:bg-muted/50"
-                            onClick={() => openResultDialog(m)}
-                          >
-                            <span className="min-w-0 flex-1 truncate text-right font-medium">
-                              {m.team1?.name ?? '—'}
-                            </span>
-                            <MatchScore match={m} />
-                            <span className="min-w-0 flex-1 truncate font-medium">
-                              {m.team2?.name ?? '—'}
-                            </span>
-                            <span
-                              className={cn(
-                                'shrink-0 rounded-full px-2 py-0.5 text-xs',
-                                m.status === 'finished'
-                                  ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-                                  : m.status === 'walkover' || m.status === 'retired'
-                                    ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
-                                    : 'bg-muted text-muted-foreground'
-                              )}
-                            >
-                              {t(`matches.status.${m.status}`)}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                matches.length === 0 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    disabled={roundTeams.length < 2 || isGeneratingBracket}
+                    onClick={handleGenerateBracket}
+                  >
+                    <Swords className="mr-1 h-3 w-3" />
+                    {t('rounds.generateBracket')}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-xs text-muted-foreground"
+                    disabled={isGeneratingBracket}
+                    onClick={() => setRegenBracketConfirmOpen(true)}
+                  >
+                    <RefreshCw className="mr-1 h-3 w-3" />
+                    {t('rounds.regenerate')}
+                  </Button>
+                )
               )}
-            </section>
-          )}
+            </div>
+            {matches.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('rounds.noMatches')}</p>
+            ) : isRoundRobin ? (
+              <div className="space-y-5">
+                {tourNumbers.map((tour) => (
+                  <div key={tour}>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">
+                      {t('rounds.tour', { n: tour })}
+                    </p>
+                    <div className="space-y-1">
+                      {byTour[tour].map((m) => (
+                        <MatchRow key={m.id} match={m} onClick={() => openResultDialog(m)} t={t} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {playoffGroups.map(({ label, matches: groupMatches }) => (
+                  <div key={label}>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">{label}</p>
+                    <div className="space-y-1">
+                      {groupMatches.map((m) => (
+                        <MatchRow key={m.id} match={m} onClick={() => openResultDialog(m)} t={t} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Right column: Standings (round_robin only) */}
@@ -528,6 +573,24 @@ export function GroupsView() {
               {t('common.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleRegen}>
+              {t('rounds.regenerate')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Regenerate bracket confirmation dialog */}
+      <Dialog open={regenBracketConfirmOpen} onOpenChange={setRegenBracketConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('rounds.regenerateBracketTitle')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('rounds.regenerateBracketDescription')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenBracketConfirmOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleRegenBracket}>
               {t('rounds.regenerate')}
             </Button>
           </DialogFooter>
@@ -668,6 +731,78 @@ function MatchScore({ match }: { match: MatchWithTeams }) {
       {match.s1 ?? 0}–{match.s2 ?? 0}
     </span>
   )
+}
+
+function MatchRow({
+  match,
+  onClick,
+  t
+}: {
+  match: MatchWithTeams
+  onClick: () => void
+  t: (key: string) => string
+}) {
+  return (
+    <div
+      className="group/match flex cursor-pointer items-center gap-3 rounded-lg border px-4 py-2.5 text-sm hover:bg-muted/50"
+      onClick={onClick}
+    >
+      <span className="min-w-0 flex-1 truncate text-right font-medium">
+        {match.team1?.name ?? '—'}
+      </span>
+      <MatchScore match={match} />
+      <span className="min-w-0 flex-1 truncate font-medium">
+        {match.team2?.name ?? '—'}
+      </span>
+      <span
+        className={cn(
+          'shrink-0 rounded-full px-2 py-0.5 text-xs',
+          match.status === 'finished'
+            ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+            : match.status === 'walkover' || match.status === 'retired'
+              ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+              : 'bg-muted text-muted-foreground'
+        )}
+      >
+        {t(`matches.status.${match.status}`)}
+      </span>
+    </div>
+  )
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TFunction = (key: string, opts?: any) => string
+
+function getPlayoffGroups(
+  matches: MatchWithTeams[],
+  t: TFunction
+): Array<{ label: string; matches: MatchWithTeams[] }> {
+  if (matches.length === 0) return []
+
+  // Build levels from final down to first round via BFS
+  const levels: MatchWithTeams[][] = []
+  let current = matches.filter((m) => m.win_match_id === null)
+  while (current.length > 0) {
+    levels.push(current)
+    const currentIds = new Set(current.map((m) => m.id))
+    current = matches.filter(
+      (m) => m.win_match_id !== null && currentIds.has(m.win_match_id)
+    )
+  }
+
+  // levels[0] = final, levels[last] = first round — reverse to show first round first
+  levels.reverse()
+  const total = levels.length
+
+  return levels.map((ms, idx) => {
+    const fromEnd = total - 1 - idx
+    let label: string
+    if (fromEnd === 0) label = t('playoffs.final')
+    else if (fromEnd === 1) label = t('playoffs.semifinals')
+    else if (fromEnd === 2) label = t('playoffs.quarterfinals')
+    else label = t('playoffs.round', { n: idx + 1 })
+    return { label, matches: ms }
+  })
 }
 
 function sortStandings(rows: RoundTableRowWithTeam[]): RoundTableRowWithTeam[] {
