@@ -1,9 +1,11 @@
 import { ipcMain } from 'electron'
+import { eq } from 'drizzle-orm'
 import { getDb } from '../../db/client'
+import * as schema from '../../db/schema'
 import { MatchRepository } from '../../db/repositories/match.repo'
 import { RoundTeamRepository } from '../../db/repositories/round-team.repo'
 import { generateMatches, updateStandings } from '../../services/round-robin.service'
-import { generateBracket } from '../../services/playoff.service'
+import { generateBracket, advanceWinner } from '../../services/playoff.service'
 import type { UpdateMatchResultDTO } from '@shared/types/match'
 
 export function registerMatchesHandler(): void {
@@ -22,8 +24,21 @@ export function registerMatchesHandler(): void {
   ipcMain.handle('matches:updateResult', (_e, matchId: string, dto: UpdateMatchResultDTO) => {
     const db = getDb()
     const match = new MatchRepository(db).updateResult(matchId, dto)
-    updateStandings(db, match.round_id)
-    const standings = new RoundTeamRepository(db).listTableWithTeamsByRound(match.round_id)
+
+    const round = db
+      .select({ type: schema.rounds.type })
+      .from(schema.rounds)
+      .where(eq(schema.rounds.id, match.round_id))
+      .get()
+
+    let standings: ReturnType<RoundTeamRepository['listTableWithTeamsByRound']> = []
+    if (round?.type === 'playoff') {
+      advanceWinner(db, matchId)
+    } else {
+      updateStandings(db, match.round_id)
+      standings = new RoundTeamRepository(db).listTableWithTeamsByRound(match.round_id)
+    }
+
     return { match, standings }
   })
 }

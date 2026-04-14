@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from 'drizzle-orm'
 import { createTestDb } from '../db/test-helpers'
-import { buildSeedingOrder, nextPowerOf2, generateBracket } from './playoff.service'
+import { buildSeedingOrder, nextPowerOf2, generateBracket, advanceWinner } from './playoff.service'
 import { TournamentRepository } from '../db/repositories/tournament.repo'
 import { EventRepository } from '../db/repositories/event.repo'
 import { PlayerRepository } from '../db/repositories/player.repo'
 import { TeamRepository } from '../db/repositories/team.repo'
 import { RoundRepository } from '../db/repositories/round.repo'
 import { RoundTeamRepository } from '../db/repositories/round-team.repo'
+import { MatchRepository } from '../db/repositories/match.repo'
 import * as schema from '../db/schema'
 
 // ─── Pure function tests ──────────────────────────────────────────────────────
@@ -350,5 +351,169 @@ describe('generateBracket - group seeding placement', () => {
 
     expect(opponentOfA2).toBe(groupBLeader)
     expect(opponentOfA2).not.toBe(groupALeader)
+  })
+})
+
+// ─── advanceWinner tests ──────────────────────────────────────────────────────
+
+describe('advanceWinner', () => {
+  // Helper: get fresh match row from DB
+  function getMatch(db: ReturnType<typeof createTestDb>, id: string) {
+    return db.select().from(schema.matches).where(eq(schema.matches.id, id)).get()!
+  }
+
+  // Helper: record a walkover result for a match
+  function setWinner(
+    db: ReturnType<typeof createTestDb>,
+    matchId: string,
+    winnerId: string
+  ) {
+    new MatchRepository(db).updateResult(matchId, {
+      status: 'walkover',
+      sets: [],
+      winner_team_id: winnerId
+    })
+  }
+
+  it('left child winner fills team1_id of the parent match', () => {
+    const { db, roundId, addTeam } = setup()
+    const t1 = addTeam('T1', 1)
+    const t2 = addTeam('T2', 2)
+    const t3 = addTeam('T3', 3)
+    const t4 = addTeam('T4', 4)
+
+    const matches = generateBracket(db, roundId)
+    // 4 teams → 2 QFs + 1 final. QF0 is left child of final, QF1 is right child.
+    const r1 = matches.filter((m) => m.left_match_id === null)
+    const final = matches.find((m) => m.win_match_id === null)!
+
+    const leftQF = r1.find((m) => m.id === final.left_match_id)!
+    const winnerId = leftQF.team1_id ?? leftQF.team2_id ?? t1
+
+    setWinner(db, leftQF.id, winnerId)
+    advanceWinner(db, leftQF.id)
+
+    const updatedFinal = getMatch(db, final.id)
+    expect(updatedFinal.team1_id).toBe(winnerId)
+    // team2_id should still be unset (right child not yet played)
+    expect(updatedFinal.team2_id).toBeNull()
+
+    // suppress unused-variable warnings
+    void [t2, t3, t4]
+  })
+
+  it('right child winner fills team2_id of the parent match', () => {
+    const { db, roundId, addTeam } = setup()
+    addTeam('T1', 1)
+    addTeam('T2', 2)
+    addTeam('T3', 3)
+    addTeam('T4', 4)
+
+    const matches = generateBracket(db, roundId)
+    const r1 = matches.filter((m) => m.left_match_id === null)
+    const final = matches.find((m) => m.win_match_id === null)!
+
+    const rightQF = r1.find((m) => m.id === final.right_match_id)!
+    const winnerId = rightQF.team1_id ?? rightQF.team2_id!
+
+    setWinner(db, rightQF.id, winnerId)
+    advanceWinner(db, rightQF.id)
+
+    const updatedFinal = getMatch(db, final.id)
+    expect(updatedFinal.team2_id).toBe(winnerId)
+    expect(updatedFinal.team1_id).toBeNull()
+  })
+
+  it('both children advance → final has both teams set', () => {
+    const { db, roundId, addTeam } = setup()
+    addTeam('T1', 1)
+    addTeam('T2', 2)
+    addTeam('T3', 3)
+    addTeam('T4', 4)
+
+    const matches = generateBracket(db, roundId)
+    const r1 = matches.filter((m) => m.left_match_id === null)
+    const final = matches.find((m) => m.win_match_id === null)!
+
+    const leftQF = r1.find((m) => m.id === final.left_match_id)!
+    const rightQF = r1.find((m) => m.id === final.right_match_id)!
+
+    const leftWinner = leftQF.team1_id!
+    const rightWinner = rightQF.team1_id!
+
+    setWinner(db, leftQF.id, leftWinner)
+    advanceWinner(db, leftQF.id)
+    setWinner(db, rightQF.id, rightWinner)
+    advanceWinner(db, rightQF.id)
+
+    const updatedFinal = getMatch(db, final.id)
+    expect(updatedFinal.team1_id).toBe(leftWinner)
+    expect(updatedFinal.team2_id).toBe(rightWinner)
+  })
+
+  it('no-op when match has no winner_team_id', () => {
+    const { db, roundId, addTeam } = setup()
+    addTeam('T1', 1)
+    addTeam('T2', 2)
+    addTeam('T3', 3)
+    addTeam('T4', 4)
+
+    const matches = generateBracket(db, roundId)
+    const r1 = matches.filter((m) => m.left_match_id === null)
+    const final = matches.find((m) => m.win_match_id === null)!
+    const leftQF = r1.find((m) => m.id === final.left_match_id)!
+
+    // Do NOT set a winner — just call advanceWinner
+    advanceWinner(db, leftQF.id)
+
+    const updatedFinal = getMatch(db, final.id)
+    expect(updatedFinal.team1_id).toBeNull()
+    expect(updatedFinal.team2_id).toBeNull()
+  })
+
+  it('no-op when match is the final (no win_match_id)', () => {
+    const { db, roundId, addTeam } = setup()
+    addTeam('T1', 1)
+    addTeam('T2', 2)
+
+    const matches = generateBracket(db, roundId)
+    const final = matches.find((m) => m.win_match_id === null)!
+    const winner = final.team1_id!
+
+    setWinner(db, final.id, winner)
+    // Should not throw
+    expect(() => advanceWinner(db, final.id)).not.toThrow()
+  })
+
+  it('winner advances through multiple rounds (QF → SF → Final)', () => {
+    const { db, roundId, addTeam } = setup()
+    for (let i = 1; i <= 8; i++) addTeam(`T${i}`, i)
+
+    const matches = generateBracket(db, roundId)
+    const final = matches.find((m) => m.win_match_id === null)!
+    const semis = matches.filter((m) => m.left_match_id !== null && m.win_match_id !== null)
+    const leftSemi = semis.find((m) => m.id === final.left_match_id)!
+    const leftQF1 = matches.find((m) => m.id === leftSemi.left_match_id)!
+
+    // Advance QF1 winner → SF
+    const qf1Winner = leftQF1.team1_id!
+    setWinner(db, leftQF1.id, qf1Winner)
+    advanceWinner(db, leftQF1.id)
+
+    const updatedSemi = getMatch(db, leftSemi.id)
+    expect(updatedSemi.team1_id).toBe(qf1Winner)
+
+    // Advance QF2 winner → SF
+    const leftQF2 = matches.find((m) => m.id === leftSemi.right_match_id)!
+    const qf2Winner = leftQF2.team1_id!
+    setWinner(db, leftQF2.id, qf2Winner)
+    advanceWinner(db, leftQF2.id)
+
+    // Now play the semi and advance to final
+    setWinner(db, leftSemi.id, qf1Winner)
+    advanceWinner(db, leftSemi.id)
+
+    const updatedFinal = getMatch(db, final.id)
+    expect(updatedFinal.team1_id).toBe(qf1Winner)
   })
 })

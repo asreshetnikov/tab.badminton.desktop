@@ -150,3 +150,42 @@ export function generateBracket(
   // Return all matches in order: first round → final
   return levels.flat().map((id) => getMatchWithTeams(db, id))
 }
+
+/**
+ * After a playoff match result is entered, advance the winner into the correct
+ * slot of the next match in the bracket.
+ *
+ * - If this match is the `left_match_id` of its parent → fills `team1_id`.
+ * - If this match is the `right_match_id` of its parent → fills `team2_id`.
+ * - If the match has no `win_match_id` (it is the final) → no-op.
+ * - If the match has no winner yet → no-op.
+ */
+export function advanceWinner(
+  db: BetterSQLite3Database<typeof schema>,
+  matchId: string
+): void {
+  const match = db
+    .select()
+    .from(schema.matches)
+    .where(eq(schema.matches.id, matchId))
+    .get()
+
+  if (!match) throw new Error(`Match not found: ${matchId}`)
+  if (!match.winner_team_id) return // no winner — nothing to advance
+  if (!match.win_match_id) return   // final — no next match
+
+  const parent = db
+    .select()
+    .from(schema.matches)
+    .where(eq(schema.matches.id, match.win_match_id))
+    .get()
+
+  if (!parent) throw new Error(`Parent match not found: ${match.win_match_id}`)
+
+  const isLeftChild = parent.left_match_id === matchId
+  db
+    .update(schema.matches)
+    .set(isLeftChild ? { team1_id: match.winner_team_id } : { team2_id: match.winner_team_id })
+    .where(eq(schema.matches.id, parent.id))
+    .run()
+}

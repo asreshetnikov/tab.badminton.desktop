@@ -294,8 +294,10 @@ export function PlayoffBracket() {
         winner_team_id: resultStatus === 'walkover' ? resultWinnerId || null : undefined
       }
 
-      const { match: updated } = await api.matches.updateResult(resultMatch.id, dto)
-      setMatches((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
+      await api.matches.updateResult(resultMatch.id, dto)
+      // Reload all matches so the winner propagated into the next round is reflected
+      const allMatches = await api.matches.listByRound(rid!)
+      setMatches(allMatches)
       closeResultDialog()
     } finally {
       setIsSavingResult(false)
