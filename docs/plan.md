@@ -216,7 +216,7 @@
 ## Этап 5. Расписание
 
 ### Шаг 26. Назначение матчей на корты
-- [ ] `ScheduleService.assignSlot(matchId, { courtId, datetime })`
+- [x] `ScheduleService.assignSlot(matchId, { courtId, datetime })`
 - `ScheduleService.validateConflicts(matchId, { teamId, datetime, duration })` — проверка занятости игрока через team_players
 - IPC handlers для schedule
 - **Тесты:** unit-тесты validateConflicts: конфликт / нет конфликта при пересечении слотов

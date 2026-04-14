@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AppAPI } from '../shared/types/ipc'
+import type { AppAPI, AssignSlotDTO } from '../shared/types/ipc'
 
 const api: AppAPI = {
   ping: () => ipcRenderer.invoke('ping'),
@@ -86,6 +86,13 @@ const api: AppAPI = {
     update: (id, data) => ipcRenderer.invoke('players:update', id, data),
     delete: (id) => ipcRenderer.invoke('players:delete', id),
     importCSV: () => ipcRenderer.invoke('players:importCSV')
+  },
+
+  schedule: {
+    assignSlot: (matchId: string, dto: AssignSlotDTO) =>
+      ipcRenderer.invoke('schedule:assignSlot', matchId, dto),
+    validateConflicts: (matchId: string, params: { teamId: string; datetime: string; duration: number }) =>
+      ipcRenderer.invoke('schedule:validateConflicts', matchId, params)
   }
 }
 

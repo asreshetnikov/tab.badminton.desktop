@@ -14,6 +14,16 @@ import type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO } from './round'
 import type { RoundTeamWithTeam, RoundTableRowWithTeam } from './round-team'
 import type { MatchWithTeams, UpdateMatchResultDTO } from './match'
 
+export interface AssignSlotDTO {
+  courtId: string | null
+  datetime: string | null
+}
+
+export interface ConflictInfo {
+  matchId: string
+  scheduledAt: string
+}
+
 export type { Venue, CreateVenueDTO, UpdateVenueDTO }
 export type { Tournament, CreateTournamentDTO, UpdateTournamentDTO }
 export type { Court, CreateCourtDTO, UpdateCourtDTO }
@@ -111,5 +121,13 @@ export interface AppAPI {
     update(id: string, data: UpdatePlayerDTO): Promise<Player>
     delete(id: string): Promise<void>
     importCSV(): Promise<{ imported: number; canceled: boolean }>
+  }
+
+  schedule: {
+    assignSlot(matchId: string, dto: AssignSlotDTO): Promise<void>
+    validateConflicts(
+      matchId: string,
+      params: { teamId: string; datetime: string; duration: number }
+    ): Promise<ConflictInfo[]>
   }
 }
