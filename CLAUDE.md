@@ -27,7 +27,7 @@
 
 | Коммит | Шаг | Что сделано |
 |--------|-----|-------------|
-| (pending) | 27 | Schedule screen: двухколоночный layout, drag&drop, ввод результата |
+| `5f12b32` | 27 | Schedule screen: двухколоночный layout, drag&drop, ввод результата |
 | `fa7c823` | 26 | ScheduleService: assignSlot + validateConflicts + тесты |
 | `af14c7c` | 25 | PlayoffService.advanceWinner + auto-progression + тесты |
 | `410ff28` | 24 | PlayoffBracket — SVG-визуализация сетки, кликабельные матчи |
