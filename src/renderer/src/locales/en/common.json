@@ -191,7 +191,9 @@
     "final": "Final",
     "semifinals": "Semifinals",
     "quarterfinals": "Quarterfinals",
-    "round": "Round {{n}}"
+    "round": "Round {{n}}",
+    "viewBracket": "View Bracket",
+    "noMatches": "No bracket generated yet."
   },
   "groups": {
     "matches": "Matches",

@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2, Swords, RefreshCw, Pencil, Check, X } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Swords, RefreshCw, Pencil, Check, X, Network } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -341,6 +341,17 @@ export function GroupsView() {
             </div>
           )}
         </div>
+        {!isRoundRobin && matches.length > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-1 shrink-0"
+            onClick={() => navigate(`/tournaments/${id}/events/${eid}/rounds/${rid}/playoff`)}
+          >
+            <Network className="mr-1.5 h-3.5 w-3.5" />
+            {t('playoffs.viewBracket')}
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_auto]">
