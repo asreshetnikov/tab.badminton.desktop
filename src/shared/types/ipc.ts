@@ -13,6 +13,7 @@ import type { TournamentTeamWithTeam } from './tournament-team'
 import type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO } from './round'
 import type { RoundTeamWithTeam, RoundTableRowWithTeam } from './round-team'
 import type { MatchWithTeams, UpdateMatchResultDTO } from './match'
+import type { MatchSlot } from './schedule'
 
 export interface AssignSlotDTO {
   courtId: string | null
@@ -35,6 +36,7 @@ export type { TournamentTeamWithTeam }
 export type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO }
 export type { RoundTeamWithTeam, RoundTableRowWithTeam }
 export type { MatchWithTeams, UpdateMatchResultDTO }
+export type { MatchSlot }
 
 export interface AppAPI {
   ping(): Promise<string>
@@ -107,6 +109,7 @@ export interface AppAPI {
   }
 
   matches: {
+    getById(matchId: string): Promise<MatchWithTeams | undefined>
     generate(roundId: string): Promise<MatchWithTeams[]>
     generatePlayoff(roundId: string): Promise<MatchWithTeams[]>
     listByRound(roundId: string): Promise<MatchWithTeams[]>
@@ -129,5 +132,8 @@ export interface AppAPI {
       matchId: string,
       params: { teamId: string; datetime: string; duration: number }
     ): Promise<ConflictInfo[]>
+    getOrderOfPlay(tournamentId: string, date: string): Promise<MatchSlot[]>
+    listScheduled(tournamentId: string): Promise<MatchSlot[]>
+    listUnscheduled(tournamentId: string): Promise<MatchSlot[]>
   }
 }

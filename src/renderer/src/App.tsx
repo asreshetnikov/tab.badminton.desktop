@@ -10,6 +10,7 @@ import { TournamentTeams } from './app/routes/TournamentTeams'
 import { TournamentRounds } from './app/routes/TournamentRounds'
 import { GroupsView } from './app/routes/GroupsView'
 import { PlayoffBracket } from './app/routes/PlayoffBracket'
+import { TournamentSchedule } from './app/routes/TournamentSchedule'
 
 function Placeholder({ title }: { title: string }) {
   return (
@@ -32,6 +33,7 @@ function App() {
           <Route path="/tournaments/:id/rounds" element={<TournamentRounds />} />
           <Route path="/tournaments/:id/events/:eid/rounds/:rid/groups" element={<GroupsView />} />
           <Route path="/tournaments/:id/events/:eid/rounds/:rid/playoff" element={<PlayoffBracket />} />
+          <Route path="/tournaments/:id/schedule" element={<TournamentSchedule />} />
           <Route path="/players" element={<Players />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/settings" element={<Placeholder title="Settings" />} />

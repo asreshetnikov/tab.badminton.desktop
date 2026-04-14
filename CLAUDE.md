@@ -23,15 +23,15 @@
 
 ## Прогресс по плану
 
-Шаги 1–25 завершены и закоммичены. Последние коммиты:
+Шаги 1–27 завершены и закоммичены. Последние коммиты:
 
 | Коммит | Шаг | Что сделано |
 |--------|-----|-------------|
+| (pending) | 27 | Schedule screen: двухколоночный layout, drag&drop, ввод результата |
+| `fa7c823` | 26 | ScheduleService: assignSlot + validateConflicts + тесты |
 | `af14c7c` | 25 | PlayoffService.advanceWinner + auto-progression + тесты |
 | `410ff28` | 24 | PlayoffBracket — SVG-визуализация сетки, кликабельные матчи |
 | `265cead` | 23 | GroupsView для playoff: Generate Bracket UI + тесты сидирования |
-| `f0fc8bb` | 22 | PlayoffService.generateBracket — дерево матчей, bye-слоты, тесты |
-| `480dbd8` | 21 | Ввод результата матча + updateStandings (round_robin) |
 
 ## Схема БД (актуальная, 14 миграций)
 
@@ -63,9 +63,12 @@ src/main/services/round-robin.service.ts       — bergerSchedule + generateMatc
 src/main/services/round-robin.service.test.ts  — тесты алгоритма и DB
 src/main/services/playoff.service.ts           — generateBracket + advanceWinner
 src/main/services/playoff.service.test.ts      — тесты bracket и advanceWinner
+src/main/services/schedule.service.ts          — assignSlot + validateConflicts + getOrderOfPlay + listScheduled + listUnscheduled
+src/main/services/schedule.service.test.ts     — тесты validateConflicts
 src/main/ipc/router.ts                         — регистрация всех IPC handlers
 src/preload/index.ts                           — contextBridge (window.api.*)
 src/shared/types/ipc.ts                        — типы AppAPI (source of truth)
+src/shared/types/schedule.ts                   — тип MatchSlot
 src/renderer/src/App.tsx                       — роуты React Router
 src/renderer/src/locales/en/common.json        — все строки UI
 
@@ -77,6 +80,7 @@ src/renderer/src/locales/en/common.json        — все строки UI
   /tournaments/:id/rounds                      TournamentRounds (список этапов)
   /tournaments/:id/events/:eid/rounds/:rid/groups    GroupsView (round_robin и playoff список)
   /tournaments/:id/events/:eid/rounds/:rid/playoff   PlayoffBracket (SVG-сетка)
+  /tournaments/:id/schedule                    TournamentSchedule (расписание)
   /players                                     Players
   /teams                                       Teams
 ```
@@ -92,6 +96,8 @@ src/renderer/src/locales/en/common.json        — все строки UI
 - **advanceWinner**: определяет слот победителя (left_match_id → team1_id, right_match_id → team2_id) и пишет в родительский матч. Вызывается автоматически в `matches:updateResult` когда `round.type === 'playoff'`.
 - **Миграции SQLite**: нельзя `ADD COLUMN NOT NULL` без default. Решение — DROP + CREATE через `statement-breakpoint`. Пример: миграция 0008.
 - **Gender-aware teams**: при принятии заявки игрока → автосоздание singles-команды (MS для M, WS для F) через `ensureSinglesTeamOnAccept`.
+- **ScheduleService**: `getMatchesForTournament` — внутренний хелпер, собирает `MatchSlot[]` по всем events/rounds/matches турнира за одну цепочку запросов; `computeBracketRounds` — BFS от финала, определяет bracketRound (1 = первый раунд) для playoff-матчей. `validateConflicts` ищет конфликты через team_players → общие игроки в уже назначенных матчах.
+- **TournamentSchedule**: двухколоночный layout (unscheduled / scheduled). Левая — матчи сгруппированы по туру/раунду сетки, карточки draggable (HTML5 DnD). Правая — табы по датам (DD), матчи по кортам в обратном хронологическом порядке, drop-зона сверху каждого корта (появляется при drag, если все матчи корта завершены или матчей нет), дефолтное время 09:00.
 
 ## Незавершённые мысли / известные ограничения
 

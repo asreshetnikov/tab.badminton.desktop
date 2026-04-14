@@ -7,6 +7,15 @@ import type { MatchWithTeams, UpdateMatchResultDTO } from '@shared/types/match'
 export class MatchRepository {
   constructor(private db: BetterSQLite3Database<typeof schema>) {}
 
+  getById(matchId: string): MatchWithTeams | undefined {
+    const match = this.db
+      .select()
+      .from(schema.matches)
+      .where(eq(schema.matches.id, matchId))
+      .get()
+    return match ? this.toMatchWithTeams(match) : undefined
+  }
+
   listByRound(roundId: string): MatchWithTeams[] {
     const rows = this.db
       .select()

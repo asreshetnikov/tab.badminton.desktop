@@ -1,6 +1,7 @@
 import { eq, isNotNull, inArray } from 'drizzle-orm'
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../db/schema'
+import type { MatchSlot } from '@shared/types/schedule'
 
 export interface AssignSlotDTO {
   courtId: string | null
@@ -102,4 +103,179 @@ export function validateConflicts(
   }
 
   return conflicts
+}
+
+// ─── Order of Play ────────────────────────────────────────────────────────────
+
+/**
+ * For a playoff round, compute the bracket round number for each match.
+ * bracketRound 1 = first round (leaf nodes), increasing toward the final.
+ * Uses BFS starting from the final match (the one with win_match_id = null).
+ */
+function computeBracketRounds(
+  matchesInRound: Array<{
+    id: string
+    win_match_id: string | null
+    left_match_id: string | null
+    right_match_id: string | null
+  }>
+): Map<string, number> {
+  const final = matchesInRound.find((m) => m.win_match_id === null)
+  if (!final) return new Map()
+
+  const matchMap = new Map(matchesInRound.map((m) => [m.id, m]))
+  const levelFromFinal = new Map<string, number>()
+  const queue: Array<{ id: string; level: number }> = [{ id: final.id, level: 0 }]
+
+  while (queue.length > 0) {
+    const { id, level } = queue.shift()!
+    levelFromFinal.set(id, level)
+    const m = matchMap.get(id)
+    if (m?.left_match_id) queue.push({ id: m.left_match_id, level: level + 1 })
+    if (m?.right_match_id) queue.push({ id: m.right_match_id, level: level + 1 })
+  }
+
+  const maxLevel = Math.max(...levelFromFinal.values())
+  const result = new Map<string, number>()
+  levelFromFinal.forEach((level, id) => {
+    result.set(id, maxLevel - level + 1) // 1 = first round, maxLevel+1 = final
+  })
+  return result
+}
+
+/**
+ * Build a full list of MatchSlot objects for every match belonging to the
+ * given tournament (across all events and rounds).
+ */
+function getMatchesForTournament(
+  db: BetterSQLite3Database<typeof schema>,
+  tournamentId: string
+): MatchSlot[] {
+  const events = db
+    .select()
+    .from(schema.events)
+    .where(eq(schema.events.tournament_id, tournamentId))
+    .all()
+
+  if (events.length === 0) return []
+  const eventIds = events.map((e) => e.id)
+
+  const rounds = db
+    .select()
+    .from(schema.rounds)
+    .where(inArray(schema.rounds.event_id, eventIds))
+    .all()
+
+  if (rounds.length === 0) return []
+  const roundIds = rounds.map((r) => r.id)
+
+  const matches = db
+    .select()
+    .from(schema.matches)
+    .where(inArray(schema.matches.round_id, roundIds))
+    .all()
+
+  if (matches.length === 0) return []
+
+  // Courts
+  const courts = db
+    .select()
+    .from(schema.courts)
+    .where(eq(schema.courts.tournament_id, tournamentId))
+    .all()
+  const courtMap = new Map(courts.map((c) => [c.id, c.name]))
+
+  // Teams
+  const teamIds = [
+    ...new Set([
+      ...(matches.map((m) => m.team1_id).filter(Boolean) as string[]),
+      ...(matches.map((m) => m.team2_id).filter(Boolean) as string[])
+    ])
+  ]
+  const teamMap = new Map<string, string>()
+  if (teamIds.length > 0) {
+    db.select({ id: schema.teams.id, name: schema.teams.name })
+      .from(schema.teams)
+      .where(inArray(schema.teams.id, teamIds))
+      .all()
+      .forEach((t) => teamMap.set(t.id, t.name))
+  }
+
+  const roundMap = new Map(rounds.map((r) => [r.id, r]))
+  const eventMap = new Map(events.map((e) => [e.id, e]))
+
+  // Pre-compute bracketRound for each playoff round
+  const bracketRoundsByRound = new Map<string, Map<string, number>>()
+  for (const round of rounds) {
+    if (round.type === 'playoff') {
+      const roundMatches = matches.filter((m) => m.round_id === round.id)
+      bracketRoundsByRound.set(round.id, computeBracketRounds(roundMatches))
+    }
+  }
+
+  return matches.map((m) => {
+    const round = roundMap.get(m.round_id)!
+    const event = eventMap.get(round.event_id)!
+    const bracketRound = bracketRoundsByRound.get(round.id)?.get(m.id) ?? null
+    return {
+      id: m.id,
+      scheduledAt: m.scheduled_at,
+      courtId: m.court_id,
+      courtName: m.court_id ? (courtMap.get(m.court_id) ?? null) : null,
+      team1Id: m.team1_id,
+      team1Name: m.team1_id ? (teamMap.get(m.team1_id) ?? null) : null,
+      team2Id: m.team2_id,
+      team2Name: m.team2_id ? (teamMap.get(m.team2_id) ?? null) : null,
+      status: m.status,
+      s1: m.s1,
+      s2: m.s2,
+      winnerTeamId: m.winner_team_id,
+      eventId: event.id,
+      eventName: event.name,
+      eventCategory: event.category,
+      roundId: round.id,
+      roundName: round.name,
+      roundType: round.type,
+      roundOrder: round.order,
+      tour: m.tour,
+      bracketRound
+    }
+  })
+}
+
+/**
+ * Return all matches for a tournament that are scheduled on the given date.
+ * @param date - "YYYY-MM-DD"
+ */
+export function getOrderOfPlay(
+  db: BetterSQLite3Database<typeof schema>,
+  tournamentId: string,
+  date: string
+): MatchSlot[] {
+  return getMatchesForTournament(db, tournamentId).filter(
+    (m) => m.scheduledAt !== null && m.scheduledAt.startsWith(date)
+  )
+}
+
+/**
+ * Return all matches for a tournament that have a scheduled time.
+ */
+export function listScheduled(
+  db: BetterSQLite3Database<typeof schema>,
+  tournamentId: string
+): MatchSlot[] {
+  return getMatchesForTournament(db, tournamentId).filter((m) => m.scheduledAt !== null)
+}
+
+/**
+ * Return all matches for a tournament that have no scheduled time
+ * and are not walkovers (i.e. still need to be placed in the schedule).
+ */
+export function listUnscheduled(
+  db: BetterSQLite3Database<typeof schema>,
+  tournamentId: string
+): MatchSlot[] {
+  return getMatchesForTournament(db, tournamentId).filter(
+    (m) => m.scheduledAt === null && m.status !== 'walkover'
+  )
 }

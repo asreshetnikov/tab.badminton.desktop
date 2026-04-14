@@ -1,0 +1,26 @@
+export interface MatchSlot {
+  id: string
+  scheduledAt: string | null
+  courtId: string | null
+  courtName: string | null
+  team1Id: string | null
+  team1Name: string | null
+  team2Id: string | null
+  team2Name: string | null
+  status: string
+  s1: number | null
+  s2: number | null
+  winnerTeamId: string | null
+  eventId: string
+  eventName: string
+  eventCategory: string
+  roundId: string
+  roundName: string
+  roundType: string
+  /** Position of the round within its event (for sorting) */
+  roundOrder: number
+  /** Tour number for round_robin matches; null for playoff */
+  tour: number | null
+  /** Bracket round for playoff matches: 1 = first round, increasing toward final; null for round_robin */
+  bracketRound: number | null
+}

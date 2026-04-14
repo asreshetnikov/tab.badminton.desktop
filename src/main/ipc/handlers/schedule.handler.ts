@@ -1,6 +1,12 @@
 import { ipcMain } from 'electron'
 import { getDb } from '../../db/client'
-import { assignSlot, validateConflicts } from '../../services/schedule.service'
+import {
+  assignSlot,
+  validateConflicts,
+  getOrderOfPlay,
+  listScheduled,
+  listUnscheduled
+} from '../../services/schedule.service'
 import type { AssignSlotDTO } from '../../services/schedule.service'
 
 export function registerScheduleHandler(): void {
@@ -12,5 +18,17 @@ export function registerScheduleHandler(): void {
     'schedule:validateConflicts',
     (_e, matchId: string, params: { teamId: string; datetime: string; duration: number }) =>
       validateConflicts(getDb(), matchId, params)
+  )
+
+  ipcMain.handle('schedule:getOrderOfPlay', (_e, tournamentId: string, date: string) =>
+    getOrderOfPlay(getDb(), tournamentId, date)
+  )
+
+  ipcMain.handle('schedule:listScheduled', (_e, tournamentId: string) =>
+    listScheduled(getDb(), tournamentId)
+  )
+
+  ipcMain.handle('schedule:listUnscheduled', (_e, tournamentId: string) =>
+    listUnscheduled(getDb(), tournamentId)
   )
 }

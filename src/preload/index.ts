@@ -65,6 +65,7 @@ const api: AppAPI = {
   },
 
   matches: {
+    getById: (matchId) => ipcRenderer.invoke('matches:getById', matchId),
     generate: (roundId) => ipcRenderer.invoke('matches:generate', roundId),
     generatePlayoff: (roundId) => ipcRenderer.invoke('matches:generatePlayoff', roundId),
     listByRound: (roundId) => ipcRenderer.invoke('matches:listByRound', roundId),
@@ -92,7 +93,13 @@ const api: AppAPI = {
     assignSlot: (matchId: string, dto: AssignSlotDTO) =>
       ipcRenderer.invoke('schedule:assignSlot', matchId, dto),
     validateConflicts: (matchId: string, params: { teamId: string; datetime: string; duration: number }) =>
-      ipcRenderer.invoke('schedule:validateConflicts', matchId, params)
+      ipcRenderer.invoke('schedule:validateConflicts', matchId, params),
+    getOrderOfPlay: (tournamentId: string, date: string) =>
+      ipcRenderer.invoke('schedule:getOrderOfPlay', tournamentId, date),
+    listScheduled: (tournamentId: string) =>
+      ipcRenderer.invoke('schedule:listScheduled', tournamentId),
+    listUnscheduled: (tournamentId: string) =>
+      ipcRenderer.invoke('schedule:listUnscheduled', tournamentId)
   }
 }
 

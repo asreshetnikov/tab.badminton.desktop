@@ -9,6 +9,9 @@ import { generateBracket, advanceWinner } from '../../services/playoff.service'
 import type { UpdateMatchResultDTO } from '@shared/types/match'
 
 export function registerMatchesHandler(): void {
+  ipcMain.handle('matches:getById', (_e, matchId: string) =>
+    new MatchRepository(getDb()).getById(matchId)
+  )
   ipcMain.handle('matches:generate', (_e, roundId: string) =>
     generateMatches(getDb(), roundId)
   )
