@@ -23,26 +23,15 @@
 
 ## Прогресс по плану
 
-Шаги 1–20 завершены и закоммичены. Последние коммиты:
+Шаги 1–25 завершены и закоммичены. Последние коммиты:
 
 | Коммит | Шаг | Что сделано |
 |--------|-----|-------------|
-| `01058dd` | 20 | Groups View — экран этапа с командами, матчами, standings |
-| `8006f62` | 19 | RoundRobinService (алгоритм Бергера) + тесты + matches IPC |
-| `a5eb80a` | 18 | round_teams, round_table, UI добавления команд в раунд |
-| `eaeb61f` | 17 | Rounds management — создание, редактирование, удаление этапов |
-| `4f9d7dc` | 16 | Tournament teams — гендерная фильтрация, создание пар |
-
-## Следующий шаг: Шаг 21
-
-**Ввод результата матча + пересчёт standings**
-
-Из `docs/plan.md`:
-- UI: диалог ввода счёта по партиям (`match_sets`) и итогового счёта (`matches.s1/s2`)
-- Статусы матча: `scheduled → in_progress → finished / walkover / retired`
-- `RoundRobinService.updateStandings(roundId)` — пересчёт `round_table` после ввода результата
-- **Тесты:** unit-тесты `updateStandings`: wins/losses, sets, points, tie-break
-- **Commit:** `feat: add match result entry with automatic standings update`
+| `af14c7c` | 25 | PlayoffService.advanceWinner + auto-progression + тесты |
+| `410ff28` | 24 | PlayoffBracket — SVG-визуализация сетки, кликабельные матчи |
+| `265cead` | 23 | GroupsView для playoff: Generate Bracket UI + тесты сидирования |
+| `f0fc8bb` | 22 | PlayoffService.generateBracket — дерево матчей, bye-слоты, тесты |
+| `480dbd8` | 21 | Ввод результата матча + updateStandings (round_robin) |
 
 ## Схема БД (актуальная, 14 миграций)
 
@@ -70,8 +59,10 @@ courts           id, tournament_id, name
 ```
 src/main/db/schema.ts                          — Drizzle-схема всех таблиц
 src/main/db/repositories/                      — репозитории (синхр. Drizzle)
-src/main/services/round-robin.service.ts       — bergerSchedule + generateMatches
-src/main/services/round-robin.service.test.ts  — 17 тестов алгоритма и DB
+src/main/services/round-robin.service.ts       — bergerSchedule + generateMatches + updateStandings
+src/main/services/round-robin.service.test.ts  — тесты алгоритма и DB
+src/main/services/playoff.service.ts           — generateBracket + advanceWinner
+src/main/services/playoff.service.test.ts      — тесты bracket и advanceWinner
 src/main/ipc/router.ts                         — регистрация всех IPC handlers
 src/preload/index.ts                           — contextBridge (window.api.*)
 src/shared/types/ipc.ts                        — типы AppAPI (source of truth)
@@ -84,7 +75,8 @@ src/renderer/src/locales/en/common.json        — все строки UI
   /tournaments/:id/players                     TournamentPlayers
   /tournaments/:id/teams                       TournamentTeams
   /tournaments/:id/rounds                      TournamentRounds (список этапов)
-  /tournaments/:id/events/:eid/rounds/:rid/groups  GroupsView (экран этапа)
+  /tournaments/:id/events/:eid/rounds/:rid/groups    GroupsView (round_robin и playoff список)
+  /tournaments/:id/events/:eid/rounds/:rid/playoff   PlayoffBracket (SVG-сетка)
   /players                                     Players
   /teams                                       Teams
 ```
@@ -94,15 +86,15 @@ src/renderer/src/locales/en/common.json        — все строки UI
 - **IPC pattern**: `ipcMain.handle('ns:method', (_e, ...args) => repo.method(...args))` в handler, `ipcRenderer.invoke('ns:method', ...args)` в preload, типизированный `window.api.ns.method()` в renderer.
 - **Drizzle sync**: всегда `.run()` для write, `.get()` для single row, `.all()` для списков. Никаких async/await в репозиториях.
 - **Алгоритм Бергера**: `bergerSchedule(teamIds[])` — чистая функция, экспортируется отдельно для тестов. Нечётное число команд → добавляем null-bye. Фиксируем последний слот, вращаем остальные.
-- **round_table**: инициализируется нулями при `roundTeams.add()`, обновляется в шаге 21 через `updateStandings`.
-- **GroupsView** — единый экран этапа: редактирование названия inline, участники, матчи (по турам), таблица. TournamentRounds — только навигационный список.
+- **round_table**: инициализируется нулями при `roundTeams.add()`, пересчитывается через `updateStandings(db, roundId)` после каждого результата round_robin матча.
+- **GroupsView** — единый экран этапа для обоих типов: редактирование названия inline, участники, матчи (по турам для RR, по раундам для playoff), standings (только для RR). Кнопка «View Bracket» ведёт на PlayoffBracket.
+- **PlayoffBracket** — SVG-визуализация с `foreignObject` для карточек матчей. Обход дерева через `left_match_id` / `right_match_id` BFS от финала, компоновка по колонкам. После сохранения результата перезагружает все матчи раунда.
+- **advanceWinner**: определяет слот победителя (left_match_id → team1_id, right_match_id → team2_id) и пишет в родительский матч. Вызывается автоматически в `matches:updateResult` когда `round.type === 'playoff'`.
 - **Миграции SQLite**: нельзя `ADD COLUMN NOT NULL` без default. Решение — DROP + CREATE через `statement-breakpoint`. Пример: миграция 0008.
 - **Gender-aware teams**: при принятии заявки игрока → автосоздание singles-команды (MS для M, WS для F) через `ensureSinglesTeamOnAccept`.
 
 ## Незавершённые мысли / известные ограничения
 
-- `match_sets` таблица создана, но не используется в UI — ввод счёта по партиям запланирован в шаге 21.
-- `round_table.position` поле всегда `null` — заполняется в шаге 21 после расчёта standings.
-- `matches.win_match_id / left_match_id / right_match_id` — для playoff-сетки, шаги 22–25.
-- `qualification_rule` в `rounds` — для перехода из групп в playoff, шаг 23.
-- Тесты репозитория (`*.repo.test.ts`) не запускаются через `npm test` из-за несовместимости Node v25 с `better-sqlite3` native binding. Запускать через `npx vitest run` после electron-rebuild.
+- `round_table.position` — вычисляется при сортировке в UI, в БД всегда `null`.
+- `qualification_rule` в `rounds` — для перехода из групп в playoff, шаг 23 по плану предполагал это, но пока не реализовано в UI.
+- Тесты с `better-sqlite3` (`*.test.ts` с DB) не запускаются через `npm test` из-за несовместимости Node v25 с native binding. Запускать через `npx vitest run` после electron-rebuild. Чистые функции тестируются без проблем.

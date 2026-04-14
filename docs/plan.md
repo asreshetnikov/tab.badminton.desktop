@@ -198,14 +198,14 @@
 - **Commit:** `feat: add playoff bracket UI with group seeding tests`
 
 ### Шаг 24. Экран playoff bracket
-- [ ] Маршрут `/tournaments/:id/events/:eid/rounds/:rid/playoff`
+- [x] Маршрут `/tournaments/:id/events/:eid/rounds/:rid/playoff`
 - SVG-визуализация сетки (самописный компонент обходом дерева)
 - Кликабельные матчи — открывают диалог ввода результата
 - **Результат:** организатор видит сетку и может кликнуть на матч для ввода счёта
 - **Commit:** `feat: add playoff bracket screen with SVG visualization`
 
 ### Шаг 25. Продвижение победителя по сетке
-- [ ] `PlayoffService.advanceWinner(matchId)` — по `win_match_id` заполняет team1_id / team2_id следующего матча
+- [x] `PlayoffService.advanceWinner(matchId)` — по `win_match_id` заполняет team1_id / team2_id следующего матча
 - Вызывается автоматически после ввода результата playoff-матча
 - **Тесты:** unit-тесты advanceWinner: победитель попадает в правильный слот (left/right)
 - **Результат:** после ввода результата победитель автоматически переходит в следующий раунд bracket
