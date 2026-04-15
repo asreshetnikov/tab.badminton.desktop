@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, Check, X, Upload } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { Plus, Pencil, Trash2, Check, X, Upload, ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { api } from '@renderer/lib/api'
@@ -49,6 +49,10 @@ export function Players() {
   const { t } = useTranslation()
   const [players, setPlayers] = useState<Player[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [genderFilter, setGenderFilter] = useState<'M' | 'F' | null>(null)
+  const [sortBy, setSortBy] = useState<'last_name' | 'club' | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const [isImporting, setIsImporting] = useState(false)
 
@@ -67,6 +71,41 @@ export function Players() {
       setIsLoading(false)
     })
   }, [])
+
+  const displayPlayers = useMemo(() => {
+    let result = players
+    if (genderFilter) result = result.filter((p) => p.gender === genderFilter)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(
+        (p) =>
+          p.last_name.toLowerCase().includes(q) ||
+          p.first_name.toLowerCase().includes(q) ||
+          (p.club ?? '').toLowerCase().includes(q) ||
+          (p.birth_year != null && String(p.birth_year).includes(q))
+      )
+    }
+    if (sortBy) {
+      result = [...result].sort((a, b) => {
+        const av = sortBy === 'last_name' ? a.last_name : (a.club ?? '')
+        const bv = sortBy === 'last_name' ? b.last_name : (b.club ?? '')
+        return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+      })
+    }
+    return result
+  }, [players, search, genderFilter, sortBy, sortDir])
+
+  function toggleSort(col: 'last_name' | 'club') {
+    if (sortBy === col) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    else { setSortBy(col); setSortDir('asc') }
+  }
+
+  function SortIcon({ col }: { col: 'last_name' | 'club' }) {
+    if (sortBy !== col) return <ChevronsUpDown className="ml-1 inline h-3 w-3 opacity-40" />
+    return sortDir === 'asc'
+      ? <ArrowUp className="ml-1 inline h-3 w-3" />
+      : <ArrowDown className="ml-1 inline h-3 w-3" />
+  }
 
   // ── Import CSV ───────────────────────────────────────────────────────────
 
@@ -166,7 +205,7 @@ export function Players() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <h1 className="text-xl font-semibold">{t('players.title')}</h1>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleImportCSV} disabled={isImporting}>
@@ -179,6 +218,31 @@ export function Players() {
               {t('players.newPlayer')}
             </Button>
           )}
+        </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder={t('players.searchPlaceholder')}
+          className="max-w-sm"
+        />
+        <div className="flex gap-1">
+          {([null, 'M', 'F'] as const).map((g) => (
+            <button
+              key={g ?? 'all'}
+              type="button"
+              onClick={() => setGenderFilter(g)}
+              className={`h-9 rounded px-3 text-sm font-medium transition-colors ${
+                genderFilter === g
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+              }`}
+            >
+              {g === null ? t('teams.allCategories') : g === 'F' ? 'W' : g}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -195,16 +259,24 @@ export function Players() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b text-left text-xs font-medium text-muted-foreground">
-              <th className="pb-2 pr-4 font-medium">{t('players.lastName')}</th>
+              <th className="pb-2 pr-4 font-medium">
+                <button type="button" className="flex items-center hover:text-foreground" onClick={() => toggleSort('last_name')}>
+                  {t('players.lastName')}<SortIcon col="last_name" />
+                </button>
+              </th>
               <th className="pb-2 pr-4 font-medium">{t('players.firstName')}</th>
-              <th className="pb-2 pr-4 font-medium">{t('players.club')}</th>
+              <th className="pb-2 pr-4 font-medium">
+                <button type="button" className="flex items-center hover:text-foreground" onClick={() => toggleSort('club')}>
+                  {t('players.club')}<SortIcon col="club" />
+                </button>
+              </th>
               <th className="pb-2 pr-4 w-16 font-medium">{t('players.gender')}</th>
               <th className="pb-2 pr-4 w-20 font-medium">{t('players.birthYear')}</th>
               <th className="pb-2 w-20" />
             </tr>
           </thead>
           <tbody>
-            {players.map((player) =>
+            {displayPlayers.map((player) =>
               editingId === player.id ? (
                 <tr key={player.id} className="border-b">
                   <td className="py-1.5 pr-2">
@@ -268,7 +340,7 @@ export function Players() {
                   <td className="py-2 pr-4">
                     {player.gender ? (
                       <span className="rounded bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground">
-                        {player.gender}
+                        {player.gender === 'F' ? 'W' : player.gender}
                       </span>
                     ) : (
                       <span className="text-muted-foreground">—</span>

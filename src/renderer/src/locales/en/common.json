@@ -114,11 +114,13 @@
       "description": "Create teams from registered players."
     },
     "category": "Category",
+    "allCategories": "All",
     "playerOne": "Player 1",
     "playerTwo": "Player 2",
     "player": "Player",
     "selectPlayer": "Select player...",
-    "deleteDescription": "Remove team \"{{name}}\"?"
+    "deleteDescription": "Remove team \"{{name}}\"?",
+    "searchPlaceholder": "Search by name or player..."
   },
   "players": {
     "title": "Players",
@@ -136,7 +138,8 @@
     "birthYear": "Born",
     "birthYearPlaceholder": "e.g. 2005",
     "importCSV": "Import CSV",
-    "importSuccess": "Imported {{count}} player(s)."
+    "importSuccess": "Imported {{count}} player(s).",
+    "searchPlaceholder": "Search by name, club or birth year..."
   },
   "events": {
     "title": "Categories",

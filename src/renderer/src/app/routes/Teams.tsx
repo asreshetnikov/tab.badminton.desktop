@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { api } from '@renderer/lib/api'
@@ -25,6 +25,8 @@ export function Teams() {
   const [players, setPlayers] = useState<Player[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [adding, setAdding] = useState(false)
+  const [search, setSearch] = useState('')
+  const [catFilter, setCatFilter] = useState<EventCategory | null>(null)
 
   const [category, setCategory] = useState<EventCategory>('MS')
   const [player1Id, setPlayer1Id] = useState('')
@@ -75,6 +77,20 @@ export function Teams() {
       setName('')
     }
   }, [player1Id, player2Id, category, players])
+
+  const displayTeams = useMemo(() => {
+    let result = teams
+    if (catFilter) result = result.filter((team) => team.category === catFilter)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(
+        (team) =>
+          team.name.toLowerCase().includes(q) ||
+          team.players.some((p) => p.last_name.toLowerCase().includes(q))
+      )
+    }
+    return result
+  }, [teams, search, catFilter])
 
   function startAdding() {
     setAdding(true)
@@ -220,6 +236,36 @@ export function Teams() {
         </form>
       )}
 
+      {teams.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('teams.searchPlaceholder')}
+            className="h-9 max-w-xs rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          />
+          <div className="flex gap-1">
+            <button
+              type="button"
+              onClick={() => setCatFilter(null)}
+              className={`h-7 rounded px-2.5 text-xs font-medium transition-colors ${catFilter === null ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+            >
+              {t('teams.allCategories')}
+            </button>
+            {EVENT_CATEGORIES.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setCatFilter(catFilter === cat ? null : cat)}
+                className={`h-7 rounded px-2.5 text-xs font-medium transition-colors ${catFilter === cat ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {teams.length === 0 && !adding ? (
         <div className="flex flex-col items-center justify-center gap-3 py-24 text-center">
           <p className="font-medium">{t('teams.empty.title')}</p>
@@ -246,7 +292,7 @@ export function Teams() {
             </tr>
           </thead>
           <tbody>
-            {teams.map((team) => (
+            {displayTeams.map((team) => (
               <tr key={team.id} className="group border-b">
                 <td className="py-2 pr-4">{categoryBadge(team.category)}</td>
                 <td className="py-2 pr-4 font-medium">

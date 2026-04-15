@@ -32,6 +32,10 @@ export function TournamentPlayers() {
   const [allPlayers, setAllPlayers] = useState<Player[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
+  // registrations list filter
+  const [regSearch, setRegSearch] = useState('')
+  const [regGenderFilter, setRegGenderFilter] = useState<'M' | 'F' | null>(null)
+
   // bulk-add dialog state
   const [dialogOpen, setDialogOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -51,6 +55,22 @@ export function TournamentPlayers() {
       setIsLoading(false)
     })
   }, [id])
+
+  const displayRegistrations = useMemo(() => {
+    let result = registrations
+    if (regGenderFilter) result = result.filter((r) => r.player.gender === regGenderFilter)
+    if (regSearch.trim()) {
+      const q = regSearch.toLowerCase()
+      result = result.filter(
+        (r) =>
+          r.player.last_name.toLowerCase().includes(q) ||
+          r.player.first_name.toLowerCase().includes(q) ||
+          (r.player.club ?? '').toLowerCase().includes(q) ||
+          (r.player.birth_year != null && String(r.player.birth_year).includes(q))
+      )
+    }
+    return result
+  }, [registrations, regSearch, regGenderFilter])
 
   const registeredIds = useMemo(
     () => new Set(registrations.map((r) => r.player_id)),
@@ -142,7 +162,7 @@ export function TournamentPlayers() {
         <div className="ml-auto flex items-center gap-3">
           {registrations.length > 0 && (
             <span className="text-sm text-muted-foreground">
-              {registrations.length} registered
+              {displayRegistrations.length} {t('players.title').toLowerCase()}
             </span>
           )}
           {availablePlayers.length > 0 && (
@@ -153,6 +173,34 @@ export function TournamentPlayers() {
           )}
         </div>
       </div>
+
+      {/* Search & filter */}
+      {registrations.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <Input
+            value={regSearch}
+            onChange={(e) => setRegSearch(e.target.value)}
+            placeholder={t('players.searchPlaceholder')}
+            className="max-w-sm"
+          />
+          <div className="flex gap-1">
+            {([null, 'M', 'F'] as const).map((g) => (
+              <button
+                key={g ?? 'all'}
+                type="button"
+                onClick={() => setRegGenderFilter(g)}
+                className={`h-9 rounded px-3 text-sm font-medium transition-colors ${
+                  regGenderFilter === g
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                {g === null ? t('teams.allCategories') : g === 'F' ? 'W' : g}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {registrations.length === 0 ? (
@@ -179,7 +227,7 @@ export function TournamentPlayers() {
             </tr>
           </thead>
           <tbody>
-            {registrations.map((reg) => (
+            {displayRegistrations.map((reg) => (
               <tr key={reg.id} className="group border-b">
                 <td className="py-2 pr-4">{reg.player.last_name}</td>
                 <td className="py-2 pr-4">{reg.player.first_name}</td>
