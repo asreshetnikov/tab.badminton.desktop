@@ -14,6 +14,7 @@ import type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO } from './round'
 import type { RoundTeamWithTeam, RoundTableRowWithTeam } from './round-team'
 import type { MatchWithTeams, UpdateMatchResultDTO } from './match'
 import type { MatchSlot } from './schedule'
+import type { TournamentDaySetting, UpsertTournamentDaySettingDTO } from './tournament-day-settings'
 
 export interface AssignSlotDTO {
   courtId: string | null
@@ -37,6 +38,7 @@ export type { Round, RoundType, CreateRoundDTO, UpdateRoundDTO }
 export type { RoundTeamWithTeam, RoundTableRowWithTeam }
 export type { MatchWithTeams, UpdateMatchResultDTO }
 export type { MatchSlot }
+export type { TournamentDaySetting, UpsertTournamentDaySettingDTO }
 
 export interface AppAPI {
   ping(): Promise<string>
@@ -124,6 +126,12 @@ export interface AppAPI {
     update(id: string, data: UpdatePlayerDTO): Promise<Player>
     delete(id: string): Promise<void>
     importCSV(): Promise<{ imported: number; canceled: boolean }>
+  }
+
+  tournamentDaySettings: {
+    listByTournament(tournamentId: string): Promise<TournamentDaySetting[]>
+    upsert(tournamentId: string, date: string, dto: UpsertTournamentDaySettingDTO): Promise<TournamentDaySetting>
+    delete(id: string): Promise<void>
   }
 
   schedule: {

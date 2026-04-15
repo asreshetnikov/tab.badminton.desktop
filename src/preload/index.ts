@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppAPI, AssignSlotDTO } from '../shared/types/ipc'
+import type { UpsertTournamentDaySettingDTO } from '../shared/types/tournament-day-settings'
 
 const api: AppAPI = {
   ping: () => ipcRenderer.invoke('ping'),
@@ -87,6 +88,14 @@ const api: AppAPI = {
     update: (id, data) => ipcRenderer.invoke('players:update', id, data),
     delete: (id) => ipcRenderer.invoke('players:delete', id),
     importCSV: () => ipcRenderer.invoke('players:importCSV')
+  },
+
+  tournamentDaySettings: {
+    listByTournament: (tournamentId: string) =>
+      ipcRenderer.invoke('tournamentDaySettings:listByTournament', tournamentId),
+    upsert: (tournamentId: string, date: string, dto: UpsertTournamentDaySettingDTO) =>
+      ipcRenderer.invoke('tournamentDaySettings:upsert', tournamentId, date, dto),
+    delete: (id: string) => ipcRenderer.invoke('tournamentDaySettings:delete', id)
   },
 
   schedule: {

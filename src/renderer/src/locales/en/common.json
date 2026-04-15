@@ -165,6 +165,12 @@
     "namePlaceholder": "e.g. Court 1",
     "add": "Add"
   },
+  "daySettings": {
+    "title": "Day Settings",
+    "startTime": "Start",
+    "matchDuration": "Duration (min)",
+    "reset": "Reset"
+  },
   "rounds": {
     "title": "Rounds",
     "add": "Add Round",

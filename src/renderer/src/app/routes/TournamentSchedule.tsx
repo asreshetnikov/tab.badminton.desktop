@@ -12,12 +12,9 @@ import {
 import { api } from '@renderer/lib/api'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
-import type { Court, MatchSlot, ConflictInfo, Tournament, MatchWithTeams, UpdateMatchResultDTO } from '@shared/types/ipc'
+import type { Court, MatchSlot, ConflictInfo, Tournament, MatchWithTeams, UpdateMatchResultDTO, TournamentDaySetting } from '@shared/types/ipc'
 import type { MatchStatus } from '@shared/types/match'
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const MATCH_DURATION = 60 // minutes — used for conflict checking
+import { DEFAULT_START_TIME, DEFAULT_MATCH_DURATION } from '@shared/types/tournament-day-settings'
 
 const CATEGORY_COLORS: Record<string, string> = {
   MS: 'bg-blue-50 border-blue-200 text-blue-900',
@@ -94,7 +91,12 @@ function formatTime(iso: string): string {
  * or null if the court still has unfinished matches.
  * "Free" = all currently scheduled matches have a result (finished/walkover/retired).
  */
-function getNextSlot(courtMatches: MatchSlot[], defaultDate: string): string | null {
+function getNextSlot(
+  courtMatches: MatchSlot[],
+  defaultDate: string,
+  startTime: string,
+  duration: number
+): string | null {
   const DONE = new Set(['finished', 'walkover', 'retired'])
   const pending = courtMatches.filter((m) => !DONE.has(m.status))
   if (pending.length > 0) return null // court still busy
@@ -105,8 +107,8 @@ function getNextSlot(courtMatches: MatchSlot[], defaultDate: string): string | n
     .sort((a, b) => (b.scheduledAt ?? '').localeCompare(a.scheduledAt ?? ''))[0]?.scheduledAt
 
   const base = latest
-    ? new Date(new Date(latest).getTime() + MATCH_DURATION * 60 * 1000)
-    : new Date(`${defaultDate}T09:00:00`)
+    ? new Date(new Date(latest).getTime() + duration * 60 * 1000)
+    : new Date(`${defaultDate}T${startTime}:00`)
 
   // Format as YYYY-MM-DDTHH:MM (required by datetime-local input)
   const pad = (n: number) => String(n).padStart(2, '0')
@@ -124,6 +126,7 @@ export function TournamentSchedule() {
   const [courts, setCourts] = useState<Court[]>([])
   const [scheduled, setScheduled] = useState<MatchSlot[]>([])
   const [unscheduled, setUnscheduled] = useState<MatchSlot[]>([])
+  const [daySettings, setDaySettings] = useState<TournamentDaySetting[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
   // Filters
@@ -152,17 +155,27 @@ export function TournamentSchedule() {
 
   async function loadData() {
     if (!id) return
-    const [t_, c, s, u] = await Promise.all([
+    const [t_, c, s, u, ds] = await Promise.all([
       api.tournament.getById(id),
       api.courts.listByTournament(id),
       api.schedule.listScheduled(id),
-      api.schedule.listUnscheduled(id)
+      api.schedule.listUnscheduled(id),
+      api.tournamentDaySettings.listByTournament(id)
     ])
     setTournament(t_)
     setCourts(c)
     setScheduled(s)
     setUnscheduled(u)
+    setDaySettings(ds)
     setIsLoading(false)
+  }
+
+  function getDaySetting(date: string): { startTime: string; duration: number } {
+    const s = daySettings.find((x) => x.date === date)
+    return {
+      startTime: s?.start_time ?? DEFAULT_START_TIME,
+      duration: s?.match_duration ?? DEFAULT_MATCH_DURATION
+    }
   }
 
   useEffect(() => {
@@ -269,12 +282,14 @@ export function TournamentSchedule() {
     try {
       // Check conflicts for both teams
       const allConflicts: ConflictInfo[] = []
+      const assignDate = assignDatetime.slice(0, 10)
+      const { duration: conflictDuration } = getDaySetting(assignDate)
       for (const teamId of [assignMatch.team1Id, assignMatch.team2Id]) {
         if (!teamId || !assignDatetime) continue
         const c = await api.schedule.validateConflicts(assignMatch.id, {
           teamId,
           datetime: assignDatetime,
-          duration: MATCH_DURATION
+          duration: conflictDuration
         })
         allConflicts.push(...c)
       }
@@ -518,7 +533,8 @@ export function TournamentSchedule() {
               <p className="text-sm text-muted-foreground">{t('schedule.noCourts')}</p>
             ) : (
               scheduledByCourt.map(({ court, matches }) => {
-                const nextSlot = court ? getNextSlot(matches, date) : null
+                const { startTime, duration } = getDaySetting(date)
+                const nextSlot = court ? getNextSlot(matches, date, startTime, duration) : null
                 return (
                 <div key={court?.id ?? '__none__'}>
                   <p className="mb-1.5 text-xs font-semibold text-muted-foreground">

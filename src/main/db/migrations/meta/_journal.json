@@ -120,6 +120,13 @@
       "when": 1744761600000,
       "tag": "0016_tournament_age_restriction",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1744848000000,
+      "tag": "0017_tournament_day_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -168,3 +168,14 @@ export const match_sets = sqliteTable('match_sets', {
   s1: integer('s1').notNull().default(0),
   s2: integer('s2').notNull().default(0)
 })
+
+export const tournament_day_settings = sqliteTable('tournament_day_settings', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id')
+    .notNull()
+    .references(() => tournaments.id, { onDelete: 'cascade' }),
+  date: text('date').notNull(),
+  start_time: text('start_time').notNull(),
+  match_duration: integer('match_duration').notNull()
+})
+

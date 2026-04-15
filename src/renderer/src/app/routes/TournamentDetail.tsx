@@ -15,6 +15,7 @@ import { statusClass } from '@renderer/features/tournament/status'
 import { TournamentForm } from '@renderer/features/tournament/TournamentForm'
 import { CourtList } from '@renderer/features/court/CourtList'
 import { EventList } from '@renderer/features/event/EventList'
+import { DaySettingsList } from '@renderer/features/tournament/DaySettingsList'
 import { formatDate } from '@renderer/lib/format'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
@@ -85,6 +86,12 @@ export function TournamentDetail() {
           isSubmitting={isSubmitting}
           onSubmit={handleUpdate}
           onCancel={() => setIsEditing(false)}
+        />
+        <CourtList tournamentId={tournament.id} />
+        <DaySettingsList
+          tournamentId={tournament.id}
+          dateStart={tournament.date_start}
+          dateEnd={tournament.date_end}
         />
       </div>
     )
@@ -165,8 +172,6 @@ export function TournamentDetail() {
         defaultAgeMin={tournament.age_min}
         defaultAgeMax={tournament.age_max}
       />
-
-      <CourtList tournamentId={tournament.id} />
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent>
