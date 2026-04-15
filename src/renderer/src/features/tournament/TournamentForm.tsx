@@ -31,6 +31,16 @@ export function TournamentForm({
   const [venueId, setVenueId] = useState<string | null>(defaultValues?.venue_id ?? null)
   const [dateStart, setDateStart] = useState(defaultValues?.date_start ?? '')
   const [dateEnd, setDateEnd] = useState(defaultValues?.date_end ?? '')
+  const [ageType, setAgeType] = useState<'none' | 'under' | 'over'>(() => {
+    if (defaultValues?.age_min != null) return 'over'
+    if (defaultValues?.age_max != null) return 'under'
+    return 'none'
+  })
+  const [ageValue, setAgeValue] = useState(() => {
+    if (defaultValues?.age_min != null) return String(defaultValues.age_min)
+    if (defaultValues?.age_max != null) return String(defaultValues.age_max + 1)
+    return ''
+  })
   const [errors, setErrors] = useState<FormErrors>({})
 
   function validate(): boolean {
@@ -47,11 +57,14 @@ export function TournamentForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!validate()) return
+    const parsedAgeVal = ageValue.trim() ? parseInt(ageValue, 10) : null
     await onSubmit({
       name: name.trim(),
       venue_id: venueId,
       date_start: dateStart,
-      date_end: dateEnd
+      date_end: dateEnd,
+      age_min: ageType === 'over' && parsedAgeVal ? parsedAgeVal : null,
+      age_max: ageType === 'under' && parsedAgeVal ? parsedAgeVal - 1 : null
     })
   }
 
@@ -91,6 +104,44 @@ export function TournamentForm({
             onChange={(e) => { setDateEnd(e.target.value); setErrors((p) => ({ ...p, date_end: undefined })) }}
           />
           {errors.date_end && <p className="text-xs text-destructive">{errors.date_end}</p>}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">{t('events.ageRestriction')}</label>
+        <div className="flex items-center gap-4">
+          {(['none', 'under', 'over'] as const).map((type) => (
+            <label key={type} className="flex cursor-pointer items-center gap-1.5 text-sm">
+              <input
+                type="radio"
+                name="tournamentAgeType"
+                value={type}
+                checked={ageType === type}
+                onChange={() => {
+                  setAgeType(type)
+                  setAgeValue('')
+                }}
+                className="accent-primary"
+              />
+              {type === 'none' && t('events.ageNone')}
+              {type === 'under' && 'U…'}
+              {type === 'over' && '…+'}
+            </label>
+          ))}
+          {ageType !== 'none' && (
+            <div className="flex items-center gap-1 text-sm">
+              {ageType === 'under' && <span className="font-mono font-semibold">U</span>}
+              <input
+                type="number"
+                min={1}
+                value={ageValue}
+                onChange={(e) => setAgeValue(e.target.value)}
+                placeholder={ageType === 'under' ? '19' : '45'}
+                className="h-9 w-20 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              />
+              {ageType === 'over' && <span className="font-mono font-semibold">+</span>}
+            </div>
+          )}
         </div>
       </div>
 

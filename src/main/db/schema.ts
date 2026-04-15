@@ -18,6 +18,8 @@ export const tournaments = sqliteTable('tournaments', {
   status: text('status', {
     enum: ['draft', 'registration_open', 'registration_closed', 'in_progress', 'finished']
   }).notNull().default('draft'),
+  age_min: integer('age_min'),
+  age_max: integer('age_max'),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull()
 })
@@ -27,7 +29,8 @@ export const players = sqliteTable('players', {
   first_name: text('first_name').notNull(),
   last_name: text('last_name').notNull(),
   club: text('club'),
-  gender: text('gender', { enum: ['M', 'F'] })
+  gender: text('gender', { enum: ['M', 'F'] }),
+  birth_year: integer('birth_year')
 })
 
 export const events = sqliteTable('events', {
@@ -37,7 +40,9 @@ export const events = sqliteTable('events', {
     .references(() => tournaments.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   category: text('category', { enum: ['MS', 'WS', 'MD', 'WD', 'XD'] }).notNull(),
-  max_entries: integer('max_entries')
+  max_entries: integer('max_entries'),
+  age_min: integer('age_min'),
+  age_max: integer('age_max')
 })
 
 export const tournament_players = sqliteTable('tournament_players', {

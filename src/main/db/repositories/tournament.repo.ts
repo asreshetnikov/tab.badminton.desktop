@@ -19,6 +19,8 @@ export class TournamentRepository {
         date_end: data.date_end,
         venue_id: data.venue_id ?? null,
         status: data.status ?? 'draft',
+        age_min: data.age_min ?? null,
+        age_max: data.age_max ?? null,
         created_at: now,
         updated_at: now
       })

@@ -30,7 +30,8 @@
     "venue": "Venue",
     "dateStart": "Start Date",
     "dateEnd": "End Date",
-    "noVenue": "—"
+    "noVenue": "—",
+    "ageRestriction": "Age Restriction"
   },
   "tournamentEdit": {
     "title": "Edit Tournament",
@@ -132,6 +133,8 @@
     "clubPlaceholder": "e.g. Spartak",
     "deleteDescription": "Remove \"{{name}}\" from the registry?",
     "gender": "Gender",
+    "birthYear": "Born",
+    "birthYearPlaceholder": "e.g. 2005",
     "importCSV": "Import CSV",
     "importSuccess": "Imported {{count}} player(s)."
   },
@@ -141,6 +144,10 @@
     "add": "Add",
     "maxEntries": "Max entries",
     "maxEntriesPlaceholder": "Unlimited",
+    "ageRestriction": "Age restriction",
+    "ageNone": "None",
+    "ageUnder": "Under",
+    "ageOver": "Over",
     "category": {
       "MS": "Men's Singles",
       "WS": "Women's Singles",

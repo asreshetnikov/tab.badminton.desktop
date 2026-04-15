@@ -9,14 +9,26 @@ import type { Event, EventCategory } from '@shared/types/ipc'
 
 interface Props {
   tournamentId: string
+  defaultAgeMin?: number | null
+  defaultAgeMax?: number | null
 }
 
-export function EventList({ tournamentId }: Props) {
+export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props) {
   const { t } = useTranslation()
   const [events, setEvents] = useState<Event[]>([])
   const [category, setCategory] = useState<EventCategory>('MS')
   const [name, setName] = useState(t('events.category.MS'))
   const [maxEntries, setMaxEntries] = useState('')
+  const [ageType, setAgeType] = useState<'none' | 'under' | 'over'>(() => {
+    if (defaultAgeMin != null) return 'over'
+    if (defaultAgeMax != null) return 'under'
+    return 'none'
+  })
+  const [ageValue, setAgeValue] = useState(() => {
+    if (defaultAgeMin != null) return String(defaultAgeMin)
+    if (defaultAgeMax != null) return String(defaultAgeMax + 1)
+    return ''
+  })
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -58,15 +70,22 @@ export function EventList({ tournamentId }: Props) {
     setIsAdding(true)
     try {
       const parsed = maxEntries.trim() ? parseInt(maxEntries, 10) : null
+      const parsedAgeVal = ageValue.trim() ? parseInt(ageValue, 10) : null
+      const ageMin = ageType === 'over' && parsedAgeVal ? parsedAgeVal : null
+      const ageMax = ageType === 'under' && parsedAgeVal ? parsedAgeVal - 1 : null
       const event = await api.events.create({
         tournament_id: tournamentId,
         name: name.trim() || t(`events.category.${category}`),
         category,
-        max_entries: parsed && !isNaN(parsed) ? parsed : null
+        max_entries: parsed && !isNaN(parsed) ? parsed : null,
+        age_min: ageMin,
+        age_max: ageMax
       })
       setEvents((prev) => [...prev, event])
       setName(t(`events.category.${category}`))
       setMaxEntries('')
+      setAgeType(defaultAgeMin != null ? 'over' : defaultAgeMax != null ? 'under' : 'none')
+      setAgeValue(defaultAgeMin != null ? String(defaultAgeMin) : defaultAgeMax != null ? String(defaultAgeMax + 1) : '')
     } finally {
       setIsAdding(false)
     }
@@ -117,6 +136,15 @@ export function EventList({ tournamentId }: Props) {
                 )}
               </div>
               <div className="flex items-center gap-3">
+                {(event.age_min != null || event.age_max != null) && (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                    {event.age_min != null && event.age_max == null
+                      ? `${event.age_min}+`
+                      : event.age_max != null && event.age_min == null
+                        ? `U${event.age_max + 1}`
+                        : `${event.age_min}–${event.age_max}`}
+                  </span>
+                )}
                 {event.max_entries != null && (
                   <span className="text-xs text-muted-foreground">
                     max {event.max_entries}
@@ -136,35 +164,72 @@ export function EventList({ tournamentId }: Props) {
         </ul>
       )}
 
-      <form onSubmit={handleAdd} className="flex items-center gap-2">
-        <select
-          value={category}
-          onChange={(e) => handleCategoryChange(e.target.value as EventCategory)}
-          className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-        >
-          {EVENT_CATEGORIES.map((cat) => (
-            <option key={cat} value={cat}>
-              {cat}
-            </option>
+      <form onSubmit={handleAdd} className="space-y-2">
+        <div className="flex items-center gap-2">
+          <select
+            value={category}
+            onChange={(e) => handleCategoryChange(e.target.value as EventCategory)}
+            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+          >
+            {EVENT_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={t(`events.category.${category}`)}
+            className="max-w-xs"
+          />
+          <Input
+            type="number"
+            min={1}
+            value={maxEntries}
+            onChange={(e) => setMaxEntries(e.target.value)}
+            placeholder={t('events.maxEntriesPlaceholder')}
+            className="w-32"
+          />
+          <Button type="submit" variant="outline" size="sm" disabled={isAdding}>
+            {t('events.add')}
+          </Button>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="text-xs text-muted-foreground">{t('events.ageRestriction')}:</span>
+          {(['none', 'under', 'over'] as const).map((type) => (
+            <label key={type} className="flex cursor-pointer items-center gap-1.5 text-xs">
+              <input
+                type="radio"
+                name="ageType"
+                value={type}
+                checked={ageType === type}
+                onChange={() => {
+                  setAgeType(type)
+                  setAgeValue('')
+                }}
+                className="accent-primary"
+              />
+              {type === 'none' && t('events.ageNone')}
+              {type === 'under' && 'U…'}
+              {type === 'over' && '…+'}
+            </label>
           ))}
-        </select>
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t(`events.category.${category}`)}
-          className="max-w-xs"
-        />
-        <Input
-          type="number"
-          min={1}
-          value={maxEntries}
-          onChange={(e) => setMaxEntries(e.target.value)}
-          placeholder={t('events.maxEntriesPlaceholder')}
-          className="w-32"
-        />
-        <Button type="submit" variant="outline" size="sm" disabled={isAdding}>
-          {t('events.add')}
-        </Button>
+          {ageType !== 'none' && (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              {ageType === 'under' && <span className="font-mono font-semibold">U</span>}
+              <Input
+                type="number"
+                min={1}
+                value={ageValue}
+                onChange={(e) => setAgeValue(e.target.value)}
+                placeholder={ageType === 'under' ? '19' : '45'}
+                className="h-7 w-16 text-xs"
+              />
+              {ageType === 'over' && <span className="font-mono font-semibold">+</span>}
+            </div>
+          )}
+        </div>
       </form>
     </div>
   )

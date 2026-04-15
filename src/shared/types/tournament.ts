@@ -12,6 +12,8 @@ export interface Tournament {
   date_end: string
   venue_id: string | null
   status: TournamentStatus
+  age_min: number | null
+  age_max: number | null
   created_at: string
   updated_at: string
 }
@@ -22,6 +24,8 @@ export interface CreateTournamentDTO {
   date_end: string
   venue_id?: string | null
   status?: TournamentStatus
+  age_min?: number | null
+  age_max?: number | null
 }
 
 export interface UpdateTournamentDTO {
@@ -30,4 +34,6 @@ export interface UpdateTournamentDTO {
   date_end?: string
   venue_id?: string | null
   status?: TournamentStatus
+  age_min?: number | null
+  age_max?: number | null
 }

@@ -145,9 +145,26 @@ export function TournamentDetail() {
 
         <dt className="font-medium text-muted-foreground">{t('tournamentDetail.dateEnd')}</dt>
         <dd>{formatDate(tournament.date_end)}</dd>
+
+        {(tournament.age_min != null || tournament.age_max != null) && (
+          <>
+            <dt className="font-medium text-muted-foreground">{t('tournamentDetail.ageRestriction')}</dt>
+            <dd>
+              {tournament.age_min != null && tournament.age_max == null
+                ? `${tournament.age_min}+`
+                : tournament.age_max != null && tournament.age_min == null
+                  ? `U${tournament.age_max + 1}`
+                  : `${tournament.age_min}–${tournament.age_max}`}
+            </dd>
+          </>
+        )}
       </dl>
 
-      <EventList tournamentId={tournament.id} />
+      <EventList
+        tournamentId={tournament.id}
+        defaultAgeMin={tournament.age_min}
+        defaultAgeMax={tournament.age_max}
+      />
 
       <CourtList tournamentId={tournament.id} />
 
