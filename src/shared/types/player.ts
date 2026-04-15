@@ -6,6 +6,7 @@ export interface Player {
   last_name: string
   club: string | null
   gender: PlayerGender | null
+  birth_year: number | null
 }
 
 export interface CreatePlayerDTO {
@@ -13,6 +14,7 @@ export interface CreatePlayerDTO {
   last_name: string
   club?: string | null
   gender?: PlayerGender | null
+  birth_year?: number | null
 }
 
 export interface UpdatePlayerDTO {
@@ -20,4 +22,5 @@ export interface UpdatePlayerDTO {
   last_name?: string
   club?: string | null
   gender?: PlayerGender | null
+  birth_year?: number | null
 }

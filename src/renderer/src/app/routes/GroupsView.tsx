@@ -136,6 +136,8 @@ export function GroupsView() {
       setStandings(sortStandings(updatedStandings))
       setAddTeamsOpen(false)
       setSelectedTeamIds(new Set())
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
     } finally {
       setIsAddingTeams(false)
     }

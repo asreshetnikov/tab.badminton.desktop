@@ -11,10 +11,11 @@ interface EditState {
   last_name: string
   club: string
   gender: PlayerGender | null
+  birth_year: string
 }
 
 function emptyEdit(): EditState {
-  return { first_name: '', last_name: '', club: '', gender: null }
+  return { first_name: '', last_name: '', club: '', gender: null, birth_year: '' }
 }
 
 function GenderToggle({
@@ -105,7 +106,8 @@ export function Players() {
         first_name: first,
         last_name: last,
         club: newPlayer.club.trim() || null,
-        gender: newPlayer.gender
+        gender: newPlayer.gender,
+        birth_year: newPlayer.birth_year ? parseInt(newPlayer.birth_year) : null
       })
       setPlayers((prev) => [...prev, player])
       setNewPlayer(emptyEdit())
@@ -123,7 +125,8 @@ export function Players() {
       first_name: player.first_name,
       last_name: player.last_name,
       club: player.club ?? '',
-      gender: player.gender
+      gender: player.gender,
+      birth_year: player.birth_year != null ? String(player.birth_year) : ''
     })
   }
 
@@ -139,7 +142,8 @@ export function Players() {
       first_name: first,
       last_name: last,
       club: editState.club.trim() || null,
-      gender: editState.gender
+      gender: editState.gender,
+      birth_year: editState.birth_year ? parseInt(editState.birth_year) : null
     })
     setPlayers((prev) => prev.map((p) => (p.id === id ? updated : p)))
     setEditingId(null)
@@ -194,7 +198,8 @@ export function Players() {
               <th className="pb-2 pr-4 font-medium">{t('players.lastName')}</th>
               <th className="pb-2 pr-4 font-medium">{t('players.firstName')}</th>
               <th className="pb-2 pr-4 font-medium">{t('players.club')}</th>
-              <th className="pb-2 pr-4 w-20 font-medium">{t('players.gender')}</th>
+              <th className="pb-2 pr-4 w-16 font-medium">{t('players.gender')}</th>
+              <th className="pb-2 pr-4 w-20 font-medium">{t('players.birthYear')}</th>
               <th className="pb-2 w-20" />
             </tr>
           </thead>
@@ -234,6 +239,16 @@ export function Players() {
                       onChange={(g) => setEditState((s) => ({ ...s, gender: g }))}
                     />
                   </td>
+                  <td className="py-1.5 pr-2">
+                    <Input
+                      type="number"
+                      value={editState.birth_year}
+                      onChange={(e) => setEditState((s) => ({ ...s, birth_year: e.target.value }))}
+                      onKeyDown={(e) => { if (e.key === 'Enter') submitEdit(player.id); if (e.key === 'Escape') cancelEditing() }}
+                      placeholder={t('players.birthYearPlaceholder')}
+                      className="h-7 text-sm w-24"
+                    />
+                  </td>
                   <td className="py-1.5">
                     <div className="flex gap-1">
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => submitEdit(player.id)}>
@@ -258,6 +273,9 @@ export function Players() {
                     ) : (
                       <span className="text-muted-foreground">—</span>
                     )}
+                  </td>
+                  <td className="py-2 pr-4 text-muted-foreground">
+                    {player.birth_year ?? '—'}
                   </td>
                   <td className="py-2">
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100">
@@ -304,6 +322,15 @@ export function Players() {
                   <GenderToggle
                     value={newPlayer.gender}
                     onChange={(g) => setNewPlayer((s) => ({ ...s, gender: g }))}
+                  />
+                </td>
+                <td className="py-1.5 pr-2">
+                  <Input
+                    type="number"
+                    value={newPlayer.birth_year}
+                    onChange={(e) => setNewPlayer((s) => ({ ...s, birth_year: e.target.value }))}
+                    placeholder={t('players.birthYearPlaceholder')}
+                    className="h-7 text-sm w-24"
                   />
                 </td>
                 <td className="py-1.5">

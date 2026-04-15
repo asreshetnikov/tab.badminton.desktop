@@ -33,18 +33,18 @@
 | `410ff28` | 24 | PlayoffBracket — SVG-визуализация сетки, кликабельные матчи |
 | `265cead` | 23 | GroupsView для playoff: Generate Bracket UI + тесты сидирования |
 
-## Схема БД (актуальная, 14 миграций)
+## Схема БД (актуальная, 15 миграций)
 
 ```
 venues           id, name, address
 tournaments      id, name, date_start, date_end, venue_id, status, created_at, updated_at
-players          id, first_name, last_name, club, gender(M|F)
+players          id, first_name, last_name, club, gender(M|F), birth_year
 events           id, tournament_id, name, category(MS|WS|MD|WD|XD), max_entries
 tournament_players  id, tournament_id, player_id, status(pending|accepted|rejected), registered_at
 teams            id, name, category(MS|WS|MD|WD|XD)
 team_players     id, team_id, player_id, position
 tournament_teams id, tournament_id, event_id, team_id
-rounds           id, event_id, name, type(round_robin|playoff), order, qualification_rule
+rounds           id, event_id, name, type(round_robin|playoff), order, qualification_rule, age_min, age_max
 round_teams      id, round_id, team_id, status(active|withdrawn), seed, checked_in
 round_table      id, round_id, team_id, wins, losses, sets_won, sets_lost, points_won, points_lost, position
 matches          id, round_id, team1_id, team2_id, winner_team_id, s1, s2,
@@ -98,6 +98,7 @@ src/renderer/src/locales/en/common.json        — все строки UI
 - **Gender-aware teams**: при принятии заявки игрока → автосоздание singles-команды (MS для M, WS для F) через `ensureSinglesTeamOnAccept`.
 - **ScheduleService**: `getMatchesForTournament` — внутренний хелпер, собирает `MatchSlot[]` по всем events/rounds/matches турнира за одну цепочку запросов; `computeBracketRounds` — BFS от финала, определяет bracketRound (1 = первый раунд) для playoff-матчей. `validateConflicts` ищет конфликты через team_players → общие игроки в уже назначенных матчах.
 - **TournamentSchedule**: двухколоночный layout (unscheduled / scheduled). Левая — матчи сгруппированы по туру/раунду сетки, карточки draggable (HTML5 DnD). Правая — табы по датам (DD), матчи по кортам в обратном хронологическом порядке, drop-зона сверху каждого корта (появляется при drag, если все матчи корта завершены или матчей нет), дефолтное время 09:00.
+- **B-1 (возраст)**: `players.birth_year` (nullable integer). `rounds.age_min` / `rounds.age_max` (nullable integer). Возраст = год турнира − birth_year. Валидация в `roundTeams:add` / `roundTeams:addMany` handler — бросает Error если хотя бы один игрок с известным birth_year выходит за ограничение. Игроки без birth_year не проверяются. UI: столбец Born в Players, поля age_min/age_max в AddRoundForm и в inline-редакторе GroupsView.
 
 ## Незавершённые мысли / известные ограничения
 

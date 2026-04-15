@@ -17,7 +17,7 @@ function isHeaderRow(cells: string[]): boolean {
 
 /**
  * Parse CSV content into player DTOs.
- * Expected column order: last_name, first_name[, club]
+ * Expected column order: last_name, first_name[, club[, gender[, birth_year]]]
  * Supports comma and semicolon separators.
  * Skips empty rows and an optional header row.
  */
@@ -44,6 +44,8 @@ export function parsePlayersCSV(content: string): CreatePlayerDTO[] {
       genderRaw === 'm' || genderRaw === 'male' ? 'M'
       : genderRaw === 'f' || genderRaw === 'female' ? 'F'
       : null
+    const birthYearRaw = parseInt(cells[4] ?? '')
+    const birth_year = Number.isFinite(birthYearRaw) ? birthYearRaw : null
 
     if (!last_name || !first_name) continue
 
@@ -51,7 +53,8 @@ export function parsePlayersCSV(content: string): CreatePlayerDTO[] {
       last_name,
       first_name,
       club: club || null,
-      gender
+      gender,
+      birth_year
     })
   }
 

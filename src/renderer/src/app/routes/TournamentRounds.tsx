@@ -32,7 +32,7 @@ function AddRoundForm({
 
   return (
     <div className="flex items-center gap-2 rounded-lg border border-dashed px-4 py-3">
-      <span className="w-5 text-right text-xs text-muted-foreground">{order}.</span>
+      <span className="w-5 shrink-0 text-right text-xs text-muted-foreground">{order}.</span>
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -47,7 +47,7 @@ function AddRoundForm({
       <select
         value={type}
         onChange={(e) => setType(e.target.value as RoundType)}
-        className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+        className="h-7 shrink-0 rounded-md border border-input bg-background px-2 text-xs"
       >
         {ROUND_TYPE_OPTIONS.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -57,13 +57,13 @@ function AddRoundForm({
       </select>
       <Button
         size="sm"
-        className="h-7 text-xs"
+        className="h-7 shrink-0 text-xs"
         disabled={!name.trim() || isSaving}
         onClick={() => name.trim() && onSave(name.trim(), type)}
       >
         {t('rounds.add')}
       </Button>
-      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onCancel}>
+      <Button size="sm" variant="ghost" className="h-7 shrink-0 text-xs" onClick={onCancel}>
         {t('common.cancel')}
       </Button>
     </div>

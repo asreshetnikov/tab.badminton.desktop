@@ -16,6 +16,8 @@ export interface Event {
   name: string
   category: EventCategory
   max_entries: number | null
+  age_min: number | null
+  age_max: number | null
 }
 
 export interface CreateEventDTO {
@@ -23,10 +25,14 @@ export interface CreateEventDTO {
   name: string
   category: EventCategory
   max_entries?: number | null
+  age_min?: number | null
+  age_max?: number | null
 }
 
 export interface UpdateEventDTO {
   name?: string
   category?: EventCategory
   max_entries?: number | null
+  age_min?: number | null
+  age_max?: number | null
 }
