@@ -74,6 +74,24 @@ export function TournamentSchedule() {
   const [categoryFilter, setCategoryFilter] = useState('all')
   const [roundFilter, setRoundFilter] = useState('all')
 
+  const [currentTime, setCurrentTime] = useState(() => {
+    const now = new Date()
+    return now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+  })
+  useEffect(() => {
+    const tick = () => {
+      const now = new Date()
+      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }))
+    }
+    const msToNextMinute = (60 - new Date().getSeconds()) * 1000
+    const timeout = setTimeout(() => {
+      tick()
+      const interval = setInterval(tick, 60_000)
+      return () => clearInterval(interval)
+    }, msToNextMinute)
+    return () => clearTimeout(timeout)
+  }, [])
+
   // Assign dialog
   const [assignMatch, setAssignMatch] = useState<MatchSlot | null>(null)
   const [assignCourtId, setAssignCourtId] = useState('')
@@ -452,6 +470,9 @@ export function TournamentSchedule() {
             ))}
           </select>
         </div>
+        <span className="ml-auto font-mono text-sm font-medium tabular-nums text-muted-foreground">
+          {currentTime}
+        </span>
       </div>
 
       {/* Settings panel */}
