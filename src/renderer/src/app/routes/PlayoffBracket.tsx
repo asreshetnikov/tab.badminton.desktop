@@ -269,6 +269,19 @@ export function PlayoffBracket() {
     setResultSets((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)))
   }
 
+  function autoFillOpposite(idx: number, field: 's1' | 's2', value: string) {
+    const otherField = field === 's1' ? 's2' : 's1'
+    const num = parseInt(value, 10)
+    setResultSets((prev) =>
+      prev.map((s, i) => {
+        if (i !== idx || isNaN(num) || s[otherField] !== '') return s
+        if (num <= 19) return { ...s, [otherField]: '21' }
+        if (num === 20) return { ...s, [otherField]: '22' }
+        return s
+      })
+    )
+  }
+
   function addSet() {
     setResultSets((prev) => [...prev, { s1: '', s2: '' }])
   }
@@ -450,6 +463,7 @@ export function PlayoffBracket() {
                       min={0}
                       value={set.s1}
                       onChange={(e) => updateSet(idx, 's1', e.target.value)}
+                      onBlur={(e) => autoFillOpposite(idx, 's1', e.target.value)}
                       className="h-8 text-center"
                     />
                     <span className="text-center text-muted-foreground">–</span>
@@ -458,6 +472,7 @@ export function PlayoffBracket() {
                       min={0}
                       value={set.s2}
                       onChange={(e) => updateSet(idx, 's2', e.target.value)}
+                      onBlur={(e) => autoFillOpposite(idx, 's2', e.target.value)}
                       className="h-8 text-center"
                     />
                     <Button

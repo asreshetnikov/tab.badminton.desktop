@@ -344,6 +344,19 @@ export function TournamentSchedule() {
     setResultSets((prev) => prev.map((s, i) => (i === idx ? { ...s, [field]: value } : s)))
   }
 
+  function autoFillOpposite(idx: number, field: 's1' | 's2', value: string) {
+    const otherField = field === 's1' ? 's2' : 's1'
+    const num = parseInt(value, 10)
+    setResultSets((prev) =>
+      prev.map((s, i) => {
+        if (i !== idx || isNaN(num) || s[otherField] !== '') return s
+        if (num <= 19) return { ...s, [otherField]: '21' }
+        if (num === 20) return { ...s, [otherField]: '22' }
+        return s
+      })
+    )
+  }
+
   async function handleSaveResult() {
     if (!resultMatch) return
     setIsSavingResult(true)
@@ -781,6 +794,7 @@ export function TournamentSchedule() {
                         min={0}
                         value={set.s1}
                         onChange={(e) => updateSet(idx, 's1', e.target.value)}
+                        onBlur={(e) => autoFillOpposite(idx, 's1', e.target.value)}
                         className="w-16 rounded border bg-background px-2 py-1 text-center text-sm"
                       />
                       <span className="text-muted-foreground">–</span>
@@ -789,6 +803,7 @@ export function TournamentSchedule() {
                         min={0}
                         value={set.s2}
                         onChange={(e) => updateSet(idx, 's2', e.target.value)}
+                        onBlur={(e) => autoFillOpposite(idx, 's2', e.target.value)}
                         className="w-16 rounded border bg-background px-2 py-1 text-center text-sm"
                       />
                       {resultSets.length > 1 && (
