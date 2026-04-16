@@ -14,6 +14,7 @@ export interface Tournament {
   status: TournamentStatus
   age_min: number | null
   age_max: number | null
+  rest_minutes: number | null
   created_at: string
   updated_at: string
 }
@@ -26,6 +27,7 @@ export interface CreateTournamentDTO {
   status?: TournamentStatus
   age_min?: number | null
   age_max?: number | null
+  rest_minutes?: number | null
 }
 
 export interface UpdateTournamentDTO {
@@ -36,4 +38,5 @@ export interface UpdateTournamentDTO {
   status?: TournamentStatus
   age_min?: number | null
   age_max?: number | null
+  rest_minutes?: number | null
 }

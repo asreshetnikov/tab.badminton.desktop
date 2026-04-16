@@ -6,6 +6,7 @@ import { MatchRepository } from '../../db/repositories/match.repo'
 import { RoundTeamRepository } from '../../db/repositories/round-team.repo'
 import { generateMatches, updateStandings } from '../../services/round-robin.service'
 import { generateBracket, advanceWinner } from '../../services/playoff.service'
+import { onMatchCompleted } from '../../services/scheduler.service'
 import type { UpdateMatchResultDTO } from '@shared/types/match'
 
 export function registerMatchesHandler(): void {
@@ -29,7 +30,7 @@ export function registerMatchesHandler(): void {
     const match = new MatchRepository(db).updateResult(matchId, dto)
 
     const round = db
-      .select({ type: schema.rounds.type })
+      .select({ type: schema.rounds.type, event_id: schema.rounds.event_id })
       .from(schema.rounds)
       .where(eq(schema.rounds.id, match.round_id))
       .get()
@@ -37,6 +38,17 @@ export function registerMatchesHandler(): void {
     let standings: ReturnType<RoundTeamRepository['listTableWithTeamsByRound']> = []
     if (round?.type === 'playoff') {
       advanceWinner(db, matchId)
+
+      // Find tournament_id via event
+      const event = db
+        .select({ tournament_id: schema.events.tournament_id })
+        .from(schema.events)
+        .where(eq(schema.events.id, round.event_id))
+        .get()
+
+      if (event) {
+        onMatchCompleted(db, matchId, event.tournament_id)
+      }
     } else {
       updateStandings(db, match.round_id)
       standings = new RoundTeamRepository(db).listTableWithTeamsByRound(match.round_id)

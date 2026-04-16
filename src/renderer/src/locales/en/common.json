@@ -297,6 +297,27 @@
     "final": "Final",
     "noneScheduled": "No matches scheduled yet.",
     "dropZoneLabel": "Next: {{time}} — drop match here",
-    "dropZoneActive": "Release to schedule"
+    "dropZoneActive": "Release to schedule",
+    "autoSchedule": "Auto Schedule",
+    "autoScheduling": "Scheduling...",
+    "settings": "Settings",
+    "settingsTitle": "Schedule Settings",
+    "restMinutes": "Rest between matches",
+    "restMinutesUnit": "min",
+    "stageDurations": "Match duration per stage",
+    "stageDurationHint": "Override default match duration for specific bracket rounds (1 = first round, 2 = second, ...)",
+    "bracketRoundLabel": "Round",
+    "durationMin": "min",
+    "addStageDuration": "Add stage duration",
+    "deleteStageDuration": "Remove",
+    "saveSettings": "Save settings",
+    "settingsSaved": "Settings saved",
+    "priority": "P{{n}}",
+    "notBeforeHard": "Not before (hard constraint)",
+    "notBeforeHardHint": "Lock this match to not start before this time",
+    "clearNotBeforeHard": "Clear",
+    "notBeforeSoftLabel": "Not before (soft)",
+    "restWarning": "Rest warning: player may not have enough rest",
+    "missingCourts": "Add courts to use auto-scheduling"
   }
 }

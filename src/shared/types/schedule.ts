@@ -23,4 +23,14 @@ export interface MatchSlot {
   tour: number | null
   /** Bracket round for playoff matches: 1 = first round, increasing toward final; null for round_robin */
   bracketRound: number | null
+  /** Computed soft not-before constraint (ISO datetime) */
+  notBeforeSoft: string | null
+  /** Manually set hard not-before constraint (ISO datetime) */
+  notBeforeHard: string | null
+  /** Actual start time (ISO datetime) */
+  actualStart: string | null
+  /** Actual end time (ISO datetime) */
+  actualEnd: string | null
+  /** Scheduling priority: higher = schedule sooner */
+  priority: number | null
 }

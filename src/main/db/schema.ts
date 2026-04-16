@@ -20,6 +20,7 @@ export const tournaments = sqliteTable('tournaments', {
   }).notNull().default('draft'),
   age_min: integer('age_min'),
   age_max: integer('age_max'),
+  rest_minutes: integer('rest_minutes'),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull()
 })
@@ -156,7 +157,20 @@ export const matches = sqliteTable('matches', {
   win_match_id: text('win_match_id'),
   left_match_id: text('left_match_id'),
   right_match_id: text('right_match_id'),
-  tour: integer('tour')
+  tour: integer('tour'),
+  not_before_hard: text('not_before_hard'),
+  not_before_soft: text('not_before_soft'),
+  actual_start: text('actual_start'),
+  actual_end: text('actual_end')
+})
+
+export const tournament_stage_durations = sqliteTable('tournament_stage_durations', {
+  id: text('id').primaryKey(),
+  tournament_id: text('tournament_id')
+    .notNull()
+    .references(() => tournaments.id, { onDelete: 'cascade' }),
+  bracket_round: integer('bracket_round').notNull(),
+  duration_minutes: integer('duration_minutes').notNull()
 })
 
 export const match_sets = sqliteTable('match_sets', {

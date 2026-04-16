@@ -238,7 +238,12 @@ function getMatchesForTournament(
       roundType: round.type,
       roundOrder: round.order,
       tour: m.tour,
-      bracketRound
+      bracketRound,
+      notBeforeHard: m.not_before_hard,
+      notBeforeSoft: m.not_before_soft,
+      actualStart: m.actual_start,
+      actualEnd: m.actual_end,
+      priority: null
     }
   })
 }

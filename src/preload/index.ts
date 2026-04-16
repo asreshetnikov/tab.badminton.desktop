@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import type { AppAPI, AssignSlotDTO } from '../shared/types/ipc'
 import type { UpsertTournamentDaySettingDTO } from '../shared/types/tournament-day-settings'
+import type { UpsertStageDurationDTO } from '../shared/types/tournament-stage-duration'
 
 const api: AppAPI = {
   ping: () => ipcRenderer.invoke('ping'),
@@ -108,7 +109,22 @@ const api: AppAPI = {
     listScheduled: (tournamentId: string) =>
       ipcRenderer.invoke('schedule:listScheduled', tournamentId),
     listUnscheduled: (tournamentId: string) =>
-      ipcRenderer.invoke('schedule:listUnscheduled', tournamentId)
+      ipcRenderer.invoke('schedule:listUnscheduled', tournamentId),
+    autoSchedule: (tournamentId: string) =>
+      ipcRenderer.invoke('schedule:autoSchedule', tournamentId),
+    setNotBeforeHard: (matchId: string, datetime: string | null) =>
+      ipcRenderer.invoke('schedule:setNotBeforeHard', matchId, datetime),
+    buildQueue: (tournamentId: string) =>
+      ipcRenderer.invoke('schedule:buildQueue', tournamentId)
+  },
+
+  stageDurations: {
+    list: (tournamentId: string) =>
+      ipcRenderer.invoke('stageDurations:list', tournamentId),
+    upsert: (tournamentId: string, bracketRound: number, dto: UpsertStageDurationDTO) =>
+      ipcRenderer.invoke('stageDurations:upsert', tournamentId, bracketRound, dto),
+    delete: (id: string) =>
+      ipcRenderer.invoke('stageDurations:delete', id)
   }
 }
 

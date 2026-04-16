@@ -12,6 +12,7 @@ import { registerRoundTeamsHandler } from './handlers/round-teams.handler'
 import { registerMatchesHandler } from './handlers/matches.handler'
 import { registerScheduleHandler } from './handlers/schedule.handler'
 import { registerTournamentDaySettingsHandler } from './handlers/tournament-day-settings.handler'
+import { registerTournamentStageDurationsHandler } from './handlers/tournament-stage-durations.handler'
 
 export function registerIpcHandlers(): void {
   registerPingHandler()
@@ -28,4 +29,5 @@ export function registerIpcHandlers(): void {
   registerMatchesHandler()
   registerScheduleHandler()
   registerTournamentDaySettingsHandler()
+  registerTournamentStageDurationsHandler()
 }

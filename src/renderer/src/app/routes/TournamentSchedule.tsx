@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
 import { api } from '@renderer/lib/api'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
-import type { Court, MatchSlot, ConflictInfo, Tournament, MatchWithTeams, UpdateMatchResultDTO, TournamentDaySetting } from '@shared/types/ipc'
+import type { Court, MatchSlot, ConflictInfo, Tournament, MatchWithTeams, UpdateMatchResultDTO, TournamentDaySetting, TournamentStageDuration } from '@shared/types/ipc'
 import type { MatchStatus } from '@shared/types/match'
 import { DEFAULT_START_TIME, DEFAULT_MATCH_DURATION } from '@shared/types/tournament-day-settings'
 
@@ -32,49 +32,6 @@ const CATEGORY_BADGE: Record<string, string> = {
   XD: 'bg-teal-100 text-teal-700'
 }
 
-// ─── Sorting ──────────────────────────────────────────────────────────────────
-
-/**
- * Sort unscheduled matches: by roundOrder, then by tour (round_robin) or bracketRound (playoff).
- */
-function sortUnscheduled(matches: MatchSlot[]): MatchSlot[] {
-  return [...matches].sort((a, b) => {
-    if (a.roundOrder !== b.roundOrder) return a.roundOrder - b.roundOrder
-    const aKey = a.roundType === 'round_robin' ? (a.tour ?? 9999) : (a.bracketRound ?? 9999)
-    const bKey = b.roundType === 'round_robin' ? (b.tour ?? 9999) : (b.bracketRound ?? 9999)
-    return aKey - bKey
-  })
-}
-
-/** Group sorted unscheduled matches into sections by round + tour/bracketRound. */
-interface MatchGroup {
-  roundId: string
-  roundName: string
-  roundType: string
-  subKey: number   // tour for round_robin, bracketRound for playoff
-  sortKey: number
-  matches: MatchSlot[]
-}
-
-function groupUnscheduled(matches: MatchSlot[]): MatchGroup[] {
-  const groups = new Map<string, MatchGroup>()
-  for (const m of matches) {
-    const subKey = m.roundType === 'round_robin' ? (m.tour ?? 0) : (m.bracketRound ?? 0)
-    const groupId = `${m.roundId}::${subKey}`
-    if (!groups.has(groupId)) {
-      groups.set(groupId, {
-        roundId: m.roundId,
-        roundName: m.roundName,
-        roundType: m.roundType,
-        subKey,
-        sortKey: m.roundOrder * 10000 + subKey,
-        matches: []
-      })
-    }
-    groups.get(groupId)!.matches.push(m)
-  }
-  return [...groups.values()].sort((a, b) => a.sortKey - b.sortKey)
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,35 +41,6 @@ function todayIso(): string {
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-}
-
-/**
- * Returns the datetime string (YYYY-MM-DDTHH:MM) for the next free slot on a court,
- * or null if the court still has unfinished matches.
- * "Free" = all currently scheduled matches have a result (finished/walkover/retired).
- */
-function getNextSlot(
-  courtMatches: MatchSlot[],
-  defaultDate: string,
-  startTime: string,
-  duration: number
-): string | null {
-  const DONE = new Set(['finished', 'walkover', 'retired'])
-  const pending = courtMatches.filter((m) => !DONE.has(m.status))
-  if (pending.length > 0) return null // court still busy
-
-  // Find the latest scheduledAt among all matches on this court
-  const latest = courtMatches
-    .filter((m) => m.scheduledAt)
-    .sort((a, b) => (b.scheduledAt ?? '').localeCompare(a.scheduledAt ?? ''))[0]?.scheduledAt
-
-  const base = latest
-    ? new Date(new Date(latest).getTime() + duration * 60 * 1000)
-    : new Date(`${defaultDate}T${startTime}:00`)
-
-  // Format as YYYY-MM-DDTHH:MM (required by datetime-local input)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${base.getFullYear()}-${pad(base.getMonth() + 1)}-${pad(base.getDate())}T${pad(base.getHours())}:${pad(base.getMinutes())}`
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -127,7 +55,19 @@ export function TournamentSchedule() {
   const [scheduled, setScheduled] = useState<MatchSlot[]>([])
   const [unscheduled, setUnscheduled] = useState<MatchSlot[]>([])
   const [daySettings, setDaySettings] = useState<TournamentDaySetting[]>([])
+  const [stageDurations, setStageDurations] = useState<TournamentStageDuration[]>([])
+  const [priorityByMatch, setPriorityByMatch] = useState<Map<string, number>>(new Map())
   const [isLoading, setIsLoading] = useState(true)
+
+  // Settings panel
+  const [showSettings, setShowSettings] = useState(false)
+  const [restMinutesDraft, setRestMinutesDraft] = useState('')
+  const [newStageBracketRound, setNewStageBracketRound] = useState('')
+  const [newStageDurationMins, setNewStageDurationMins] = useState('')
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+
+  // Auto-schedule
+  const [isAutoScheduling, setIsAutoScheduling] = useState(false)
 
   // Filters
   const [date, setDate] = useState(todayIso)
@@ -138,11 +78,9 @@ export function TournamentSchedule() {
   const [assignMatch, setAssignMatch] = useState<MatchSlot | null>(null)
   const [assignCourtId, setAssignCourtId] = useState('')
   const [assignDatetime, setAssignDatetime] = useState('')
+  const [assignNotBeforeHard, setAssignNotBeforeHard] = useState('')
   const [conflicts, setConflicts] = useState<ConflictInfo[]>([])
   const [isSaving, setIsSaving] = useState(false)
-
-  // Drag state — id of the match currently being dragged from the left column
-  const [draggingMatchId, setDraggingMatchId] = useState<string | null>(null)
 
   // Result dialog
   const [resultMatch, setResultMatch] = useState<MatchWithTeams | null>(null)
@@ -155,18 +93,25 @@ export function TournamentSchedule() {
 
   async function loadData() {
     if (!id) return
-    const [t_, c, s, u, ds] = await Promise.all([
+    const [t_, c, s, u, ds, sd, queue] = await Promise.all([
       api.tournament.getById(id),
       api.courts.listByTournament(id),
       api.schedule.listScheduled(id),
       api.schedule.listUnscheduled(id),
-      api.tournamentDaySettings.listByTournament(id)
+      api.tournamentDaySettings.listByTournament(id),
+      api.stageDurations.list(id),
+      api.schedule.buildQueue(id)
     ])
     setTournament(t_)
     setCourts(c)
     setScheduled(s)
     setUnscheduled(u)
     setDaySettings(ds)
+    setStageDurations(sd)
+    setRestMinutesDraft(String(t_?.rest_minutes ?? 30))
+    const pm = new Map<string, number>()
+    queue.forEach((q) => pm.set(q.matchId, q.priority))
+    setPriorityByMatch(pm)
     setIsLoading(false)
   }
 
@@ -202,16 +147,18 @@ export function TournamentSchedule() {
     return true
   }
 
-  // Unscheduled: sorted + grouped, no date filter (they have no date)
-  const filteredUnscheduled = useMemo(
-    () => sortUnscheduled(unscheduled.filter(matchFilter)),
-    [unscheduled, categoryFilter, roundFilter]
-  )
-  const unscheduledGroups = useMemo(
-    () => groupUnscheduled(filteredUnscheduled),
-    [filteredUnscheduled]
-  )
-
+  // Unscheduled: filtered, sorted by priority desc → notBeforeSoft asc
+  const filteredUnscheduled = useMemo(() => {
+    const filtered = unscheduled.filter(matchFilter)
+    return filtered.sort((a, b) => {
+      const pa = priorityByMatch.get(a.id) ?? -1
+      const pb = priorityByMatch.get(b.id) ?? -1
+      if (pb !== pa) return pb - pa
+      const ta = a.notBeforeSoft ? new Date(a.notBeforeSoft).getTime() : Infinity
+      const tb = b.notBeforeSoft ? new Date(b.notBeforeSoft).getTime() : Infinity
+      return ta - tb
+    })
+  }, [unscheduled, categoryFilter, roundFilter, priorityByMatch])
   // Unique sorted dates from all scheduled matches
   const scheduledDates = useMemo(() => {
     const dates = new Set(
@@ -236,29 +183,46 @@ export function TournamentSchedule() {
     [scheduled, date, categoryFilter, roundFilter]
   )
 
-  const scheduledByCourt = useMemo(() => {
-    const map = new Map<string, { court: Court | null; matches: MatchSlot[] }>()
-    // Add court groups in courts order
-    for (const court of courts) {
-      map.set(court.id, { court, matches: [] })
-    }
-    // Group matches
-    for (const m of filteredScheduled) {
-      const key = m.courtId ?? '__none__'
-      if (!map.has(key)) {
-        map.set(key, { court: null, matches: [] })
-      }
-      map.get(key)!.matches.push(m)
-    }
-    // Keep all named courts; keep anonymous groups only if they have matches
-    return [...map.values()].filter((g) => g.court !== null || g.matches.length > 0)
-  }, [filteredScheduled, courts])
+  // ─── Auto schedule ─────────────────────────────────────────────────────────
 
-  // ─── Drag & drop ───────────────────────────────────────────────────────────
+  async function handleAutoSchedule() {
+    if (!id) return
+    setIsAutoScheduling(true)
+    try {
+      await api.schedule.autoSchedule(id)
+      await loadData()
+    } finally {
+      setIsAutoScheduling(false)
+    }
+  }
 
-  async function handleDropOnCourt(matchId: string, courtId: string, datetime: string) {
-    setDraggingMatchId(null)
-    await api.schedule.assignSlot(matchId, { courtId, datetime })
+  // ─── Settings ──────────────────────────────────────────────────────────────
+
+  async function handleSaveSettings() {
+    if (!id || !tournament) return
+    setIsSavingSettings(true)
+    try {
+      const restMins = parseInt(restMinutesDraft) || 30
+      await api.tournament.update(id, { rest_minutes: restMins })
+      await loadData()
+    } finally {
+      setIsSavingSettings(false)
+    }
+  }
+
+  async function handleAddStageDuration() {
+    if (!id) return
+    const bracketRound = parseInt(newStageBracketRound)
+    const durationMins = parseInt(newStageDurationMins)
+    if (isNaN(bracketRound) || bracketRound < 1 || isNaN(durationMins) || durationMins < 1) return
+    await api.stageDurations.upsert(id, bracketRound, { duration_minutes: durationMins })
+    setNewStageBracketRound('')
+    setNewStageDurationMins('')
+    await loadData()
+  }
+
+  async function handleDeleteStageDuration(durationId: string) {
+    await api.stageDurations.delete(durationId)
     await loadData()
   }
 
@@ -268,6 +232,7 @@ export function TournamentSchedule() {
     setAssignMatch(match)
     setAssignCourtId(match.courtId ?? '')
     setAssignDatetime(match.scheduledAt ?? `${date}T10:00`)
+    setAssignNotBeforeHard(match.notBeforeHard ? match.notBeforeHard.slice(0, 16) : '')
     setConflicts([])
   }
 
@@ -318,10 +283,16 @@ export function TournamentSchedule() {
 
   async function doSave() {
     if (!assignMatch || !id) return
-    await api.schedule.assignSlot(assignMatch.id, {
-      courtId: assignCourtId || null,
-      datetime: assignDatetime || null
-    })
+    await Promise.all([
+      api.schedule.assignSlot(assignMatch.id, {
+        courtId: assignCourtId || null,
+        datetime: assignDatetime || null
+      }),
+      api.schedule.setNotBeforeHard(
+        assignMatch.id,
+        assignNotBeforeHard ? `${assignNotBeforeHard}:00` : null
+      )
+    ])
     closeAssign()
     await loadData()
     setIsSaving(false)
@@ -403,6 +374,26 @@ export function TournamentSchedule() {
         <span className="text-sm text-muted-foreground">{tournament?.name}</span>
         <span className="text-muted-foreground">/</span>
         <h1 className="text-lg font-semibold">{t('schedule.title')}</h1>
+        <div className="ml-auto flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowSettings((v) => !v)}
+            className={cn(showSettings && 'bg-muted')}
+          >
+            <Settings2 className="mr-1.5 h-4 w-4" />
+            {t('schedule.settings')}
+          </Button>
+          <Button
+            size="sm"
+            onClick={handleAutoSchedule}
+            disabled={isAutoScheduling || courts.length === 0}
+            title={courts.length === 0 ? t('schedule.missingCourts') : undefined}
+          >
+            <Wand2 className="mr-1.5 h-4 w-4" />
+            {isAutoScheduling ? t('schedule.autoScheduling') : t('schedule.autoSchedule')}
+          </Button>
+        </div>
       </div>
 
       {/* Filter bar */}
@@ -439,6 +430,73 @@ export function TournamentSchedule() {
         </div>
       </div>
 
+      {/* Settings panel */}
+      {showSettings && (
+        <div className="border-b bg-muted/10 px-6 py-4">
+          <h3 className="mb-3 text-sm font-semibold">{t('schedule.settingsTitle')}</h3>
+          <div className="flex flex-wrap gap-6">
+            {/* Rest minutes */}
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground">{t('schedule.restMinutes')}</label>
+              <input
+                type="number"
+                min={0}
+                value={restMinutesDraft}
+                onChange={(e) => setRestMinutesDraft(e.target.value)}
+                className="w-16 rounded border bg-background px-2 py-1 text-sm"
+              />
+              <span className="text-sm text-muted-foreground">{t('schedule.restMinutesUnit')}</span>
+              <Button size="sm" variant="outline" onClick={handleSaveSettings} disabled={isSavingSettings}>
+                {t('common.save')}
+              </Button>
+            </div>
+
+            {/* Stage durations */}
+            <div className="flex-1">
+              <p className="mb-1.5 text-sm text-muted-foreground">{t('schedule.stageDurations')}</p>
+              <div className="flex flex-wrap gap-2">
+                {stageDurations
+                  .slice()
+                  .sort((a, b) => a.bracket_round - b.bracket_round)
+                  .map((sd) => (
+                    <div key={sd.id} className="flex items-center gap-1.5 rounded-md border bg-background px-2 py-1 text-xs">
+                      <span className="text-muted-foreground">{t('schedule.bracketRoundLabel')} {sd.bracket_round}:</span>
+                      <span className="font-medium">{sd.duration_minutes} {t('schedule.durationMin')}</span>
+                      <button
+                        onClick={() => handleDeleteStageDuration(sd.id)}
+                        className="ml-0.5 text-muted-foreground hover:text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="Round"
+                    value={newStageBracketRound}
+                    onChange={(e) => setNewStageBracketRound(e.target.value)}
+                    className="w-16 rounded border bg-background px-2 py-1 text-xs"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="min"
+                    value={newStageDurationMins}
+                    onChange={(e) => setNewStageDurationMins(e.target.value)}
+                    className="w-14 rounded border bg-background px-2 py-1 text-xs"
+                  />
+                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={handleAddStageDuration}>
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Two-column body */}
       <div className="flex min-h-0 flex-1 divide-x overflow-hidden">
 
@@ -449,55 +507,28 @@ export function TournamentSchedule() {
               {t('schedule.unscheduledCount', { count: filteredUnscheduled.length })}
             </h2>
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
             {filteredUnscheduled.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('schedule.noUnscheduled')}</p>
             ) : (
-              unscheduledGroups.map((group) => {
-                const subLabel =
-                  group.roundType === 'round_robin'
-                    ? t('schedule.tour', { n: group.subKey })
-                    : t('schedule.bracketRound', { n: group.subKey })
-                return (
-                <div key={`${group.roundId}-${group.sortKey}`}>
-                  <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
-                    {group.roundName} — {subLabel}
-                  </p>
-                  <div className="space-y-1.5">
-                    {group.matches.map((m) => (
-                      <div
-                        key={m.id}
-                        draggable
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('matchId', m.id)
-                          e.dataTransfer.effectAllowed = 'move'
-                          setDraggingMatchId(m.id)
-                        }}
-                        onDragEnd={() => setDraggingMatchId(null)}
-                        className={cn(
-                          'cursor-grab active:cursor-grabbing',
-                          draggingMatchId === m.id && 'opacity-50'
-                        )}
+              filteredUnscheduled.map((m) => (
+                <div key={m.id}>
+                  <MatchCard
+                    match={m}
+                    priority={priorityByMatch.get(m.id) ?? null}
+                    action={
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 shrink-0 px-2 text-xs"
+                        onClick={() => openAssign(m)}
                       >
-                        <MatchCard
-                          match={m}
-                          action={
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 shrink-0 px-2 text-xs"
-                              onClick={() => openAssign(m)}
-                            >
-                              {t('schedule.assign')}
-                            </Button>
-                          }
-                        />
-                      </div>
-                    ))}
-                  </div>
+                        {t('schedule.assign')}
+                      </Button>
+                    }
+                  />
                 </div>
-                )
-              })
+              ))
             )}
           </div>
         </div>
@@ -528,59 +559,39 @@ export function TournamentSchedule() {
               </div>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-4">
-            {scheduledByCourt.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('schedule.noCourts')}</p>
+          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+            {filteredScheduled.length === 0 ? (
+              <p className="text-sm text-muted-foreground">{t('schedule.noScheduled')}</p>
             ) : (
-              scheduledByCourt.map(({ court, matches }) => {
-                const { startTime, duration } = getDaySetting(date)
-                const nextSlot = court ? getNextSlot(matches, date, startTime, duration) : null
-                return (
-                <div key={court?.id ?? '__none__'}>
-                  <p className="mb-1.5 text-xs font-semibold text-muted-foreground">
-                    {court?.name ?? t('schedule.noCourt')}
-                  </p>
-                  <div className="space-y-1.5">
-                    {court && nextSlot && draggingMatchId && (
-                      <CourtDropZone
-                        courtId={court.id}
-                        nextSlot={nextSlot}
-                        onDrop={handleDropOnCourt}
-                      />
-                    )}
-                    {matches.map((m) => (
-                      <MatchCard
-                        key={m.id}
-                        match={m}
-                        timePrefix={m.scheduledAt ? formatTime(m.scheduledAt) : undefined}
-                        action={
-                          <div className="flex shrink-0 gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-xs"
-                              onClick={() => openResultDialog(m)}
-                            >
-                              {m.status === 'finished' || m.status === 'walkover' || m.status === 'retired'
-                                ? t('matches.editResult')
-                                : t('matches.enterResult')}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 px-2 text-xs text-muted-foreground"
-                              onClick={() => openAssign(m)}
-                            >
-                              {t('common.edit')}
-                            </Button>
-                          </div>
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-                )
-              })
+              filteredScheduled.map((m) => (
+                <MatchCard
+                  key={m.id}
+                  match={m}
+                  timePrefix={m.scheduledAt ? formatTime(m.scheduledAt) : undefined}
+                  action={
+                    <div className="flex shrink-0 gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-xs"
+                        onClick={() => openResultDialog(m)}
+                      >
+                        {m.status === 'finished' || m.status === 'walkover' || m.status === 'retired'
+                          ? t('matches.editResult')
+                          : t('matches.enterResult')}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 px-2 text-xs text-muted-foreground"
+                        onClick={() => openAssign(m)}
+                      >
+                        {t('common.edit')}
+                      </Button>
+                    </div>
+                  }
+                />
+              ))
             )}
           </div>
         </div>
@@ -632,6 +643,35 @@ export function TournamentSchedule() {
                   onChange={(e) => { setAssignDatetime(e.target.value); setConflicts([]) }}
                   className="w-full rounded border bg-background px-3 py-2 text-sm"
                 />
+              </div>
+
+              {/* Not before hard */}
+              <div className="space-y-1">
+                <label className="text-sm font-medium">{t('schedule.notBeforeHard')}</label>
+                <p className="text-xs text-muted-foreground">{t('schedule.notBeforeHardHint')}</p>
+                <div className="flex gap-2">
+                  <input
+                    type="datetime-local"
+                    value={assignNotBeforeHard}
+                    onChange={(e) => setAssignNotBeforeHard(e.target.value)}
+                    className="flex-1 rounded border bg-background px-3 py-2 text-sm"
+                  />
+                  {assignNotBeforeHard && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0 text-muted-foreground"
+                      onClick={() => setAssignNotBeforeHard('')}
+                    >
+                      {t('schedule.clearNotBeforeHard')}
+                    </Button>
+                  )}
+                </div>
+                {assignMatch?.notBeforeSoft && (
+                  <p className="text-xs text-muted-foreground">
+                    {t('schedule.notBeforeSoftLabel')}: {formatTime(assignMatch.notBeforeSoft)}
+                  </p>
+                )}
               </div>
 
               {/* Conflicts warning */}
@@ -800,10 +840,12 @@ export function TournamentSchedule() {
 function MatchCard({
   match,
   timePrefix,
+  priority,
   action
 }: {
   match: MatchSlot
   timePrefix?: string
+  priority?: number | null
   action?: React.ReactNode
 }) {
   const { t } = useTranslation()
@@ -827,6 +869,18 @@ function MatchCard({
           >
             {match.eventCategory}
           </span>
+          {priority !== null && priority !== undefined && (
+            <span className="shrink-0 rounded bg-amber-100 px-1 py-0.5 text-[10px] font-semibold text-amber-700"
+              title="Scheduling priority">
+              {t('schedule.priority', { n: priority })}
+            </span>
+          )}
+          {match.notBeforeHard && (
+            <span className="shrink-0 rounded bg-rose-100 px-1 py-0.5 text-[10px] text-rose-700"
+              title={`Not before: ${match.notBeforeHard}`}>
+              ⏰
+            </span>
+          )}
           <span className="truncate font-medium">
             {match.team1Name ?? t('schedule.tbd')} {t('schedule.vs')}{' '}
             {match.team2Name ?? t('schedule.tbd')}
@@ -842,47 +896,25 @@ function MatchCard({
             </span>
           )}
         </div>
-        <div className="mt-0.5 truncate text-[11px] opacity-60">{match.roundName}</div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] opacity-60">
+          {match.courtName && (
+            <span className="shrink-0 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">
+              {match.courtName}
+            </span>
+          )}
+          <span className="truncate">{match.roundName}</span>
+          {match.roundType === 'playoff' && match.bracketRound !== null && (
+            <span className="shrink-0">· {t('schedule.bracketRound', { n: match.bracketRound })}</span>
+          )}
+          {match.roundType === 'round_robin' && match.tour !== null && (
+            <span className="shrink-0">· {t('schedule.tour', { n: match.tour })}</span>
+          )}
+          {match.notBeforeSoft && !match.scheduledAt && (
+            <span className="shrink-0">· {t('schedule.notBeforeSoftLabel')}: {formatTime(match.notBeforeSoft)}</span>
+          )}
+        </div>
       </div>
       {action}
-    </div>
-  )
-}
-
-// ─── CourtDropZone sub-component ──────────────────────────────────────────────
-
-function CourtDropZone({
-  courtId,
-  nextSlot,
-  onDrop
-}: {
-  courtId: string
-  nextSlot: string
-  onDrop: (matchId: string, courtId: string, datetime: string) => void
-}) {
-  const { t } = useTranslation()
-  const [isOver, setIsOver] = useState(false)
-
-  return (
-    <div
-      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setIsOver(true) }}
-      onDragLeave={() => setIsOver(false)}
-      onDrop={(e) => {
-        e.preventDefault()
-        setIsOver(false)
-        const matchId = e.dataTransfer.getData('matchId')
-        if (matchId) onDrop(matchId, courtId, nextSlot)
-      }}
-      className={cn(
-        'rounded-lg border-2 border-dashed px-3 py-2.5 text-center text-xs font-medium transition-colors select-none',
-        isOver
-          ? 'border-primary bg-primary/10 text-primary'
-          : 'border-muted-foreground/25 text-muted-foreground hover:border-muted-foreground/50'
-      )}
-    >
-      {isOver
-        ? t('schedule.dropZoneActive')
-        : t('schedule.dropZoneLabel', { time: formatTime(nextSlot) })}
     </div>
   )
 }

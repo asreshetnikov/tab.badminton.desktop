@@ -15,6 +15,17 @@ import type { RoundTeamWithTeam, RoundTableRowWithTeam } from './round-team'
 import type { MatchWithTeams, UpdateMatchResultDTO } from './match'
 import type { MatchSlot } from './schedule'
 import type { TournamentDaySetting, UpsertTournamentDaySettingDTO } from './tournament-day-settings'
+import type { TournamentStageDuration, UpsertStageDurationDTO } from './tournament-stage-duration'
+
+export interface ScheduleQueueItem {
+  matchId: string
+  priority: number
+  categoryDepth: number
+  crossPending: number
+  effectiveNotBefore: string
+  notBeforeSoft: string | null
+  notBeforeHard: string | null
+}
 
 export interface AssignSlotDTO {
   courtId: string | null
@@ -39,6 +50,7 @@ export type { RoundTeamWithTeam, RoundTableRowWithTeam }
 export type { MatchWithTeams, UpdateMatchResultDTO }
 export type { MatchSlot }
 export type { TournamentDaySetting, UpsertTournamentDaySettingDTO }
+export type { TournamentStageDuration, UpsertStageDurationDTO }
 
 export interface AppAPI {
   ping(): Promise<string>
@@ -143,5 +155,14 @@ export interface AppAPI {
     getOrderOfPlay(tournamentId: string, date: string): Promise<MatchSlot[]>
     listScheduled(tournamentId: string): Promise<MatchSlot[]>
     listUnscheduled(tournamentId: string): Promise<MatchSlot[]>
+    autoSchedule(tournamentId: string): Promise<void>
+    setNotBeforeHard(matchId: string, datetime: string | null): Promise<void>
+    buildQueue(tournamentId: string): Promise<ScheduleQueueItem[]>
+  }
+
+  stageDurations: {
+    list(tournamentId: string): Promise<TournamentStageDuration[]>
+    upsert(tournamentId: string, bracketRound: number, dto: UpsertStageDurationDTO): Promise<TournamentStageDuration>
+    delete(id: string): Promise<void>
   }
 }
