@@ -132,6 +132,17 @@ export function TournamentSchedule() {
 
   const allMatches = useMemo(() => [...scheduled, ...unscheduled], [scheduled, unscheduled])
 
+  const maxBracketRoundByRound = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const m of allMatches) {
+      if (m.roundType === 'playoff' && m.bracketRound !== null) {
+        const cur = map.get(m.roundId) ?? 0
+        if (m.bracketRound > cur) map.set(m.roundId, m.bracketRound)
+      }
+    }
+    return map
+  }, [allMatches])
+
   const categories = useMemo(
     () => [...new Set(allMatches.map((m) => m.eventCategory))],
     [allMatches]
@@ -516,6 +527,7 @@ export function TournamentSchedule() {
                   <MatchCard
                     match={m}
                     priority={priorityByMatch.get(m.id) ?? null}
+                    maxBracketRound={maxBracketRoundByRound.get(m.roundId)}
                     action={
                       <Button
                         size="sm"
@@ -567,6 +579,7 @@ export function TournamentSchedule() {
                 <MatchCard
                   key={m.id}
                   match={m}
+                  maxBracketRound={maxBracketRoundByRound.get(m.roundId)}
                   timePrefix={m.scheduledAt ? formatTime(m.scheduledAt) : undefined}
                   action={
                     <div className="flex shrink-0 gap-1">
@@ -841,11 +854,13 @@ function MatchCard({
   match,
   timePrefix,
   priority,
+  maxBracketRound,
   action
 }: {
   match: MatchSlot
   timePrefix?: string
   priority?: number | null
+  maxBracketRound?: number
   action?: React.ReactNode
 }) {
   const { t } = useTranslation()
@@ -903,9 +918,17 @@ function MatchCard({
             </span>
           )}
           <span className="truncate">{match.roundName}</span>
-          {match.roundType === 'playoff' && match.bracketRound !== null && (
-            <span className="shrink-0">· {t('schedule.bracketRound', { n: match.bracketRound })}</span>
-          )}
+          {match.roundType === 'playoff' && match.bracketRound !== null && maxBracketRound !== undefined && (() => {
+            const depth = maxBracketRound - match.bracketRound
+            const label = depth === 0
+              ? t('schedule.bracketFinal')
+              : depth === 1
+              ? t('schedule.bracketSemiFinal')
+              : depth === 2
+              ? t('schedule.bracketQuarterFinal')
+              : t('schedule.bracketRoundOf', { n: Math.pow(2, depth + 1) })
+            return <span className="shrink-0">· {label}</span>
+          })()}
           {match.roundType === 'round_robin' && match.tour !== null && (
             <span className="shrink-0">· {t('schedule.tour', { n: match.tour })}</span>
           )}
