@@ -21,6 +21,9 @@ import * as schema from '../db/schema'
 const DEFAULT_START_TIME = '09:00'
 const DEFAULT_MATCH_DURATION = 60
 
+/** Tracks when a specific court next becomes available. */
+type CourtSlot = { courtId: string; endTime: number }
+
 const DONE_STATUSES = ['finished', 'walkover', 'retired'] as const
 type DoneStatus = (typeof DONE_STATUSES)[number]
 
@@ -342,10 +345,9 @@ export function computeNotBeforeSoft(
       }
     }
 
-    // If no prior matches, use day start as base
-    if (lastEndMs === null) {
-      lastEndMs = getDayStart(db, tournamentId, defaultDate).getTime()
-    }
+    // If no prior matches for this player, they can start at dayStart — no rest needed.
+    // Rest is only required after an actual match has been played.
+    if (lastEndMs === null) continue
 
     const notBeforeMs = lastEndMs + restMinutes * 60 * 1000
     if (maxNotBefore === null || notBeforeMs > maxNotBefore) maxNotBefore = notBeforeMs
@@ -465,12 +467,19 @@ export function onMatchCompleted(
       .where(eq(schema.matches.id, m.id))
       .run()
   }
-
 }
 
 /**
- * Full auto-schedule: assigns all unscheduled READY playoff matches to courts.
- * Preserves existing manual assignments (matches with scheduled_at are not touched).
+ * Full auto-schedule triggered by the "Auto Schedule" button.
+ *
+ * Three-phase approach:
+ *   0. Clear all non-done scheduled_at / court_id for a clean slate.
+ *   1. Schedule round-robin matches tour by tour (N per slot, courts assigned cyclically).
+ *      Each tour has no player conflicts because each player appears once per tour.
+ *   2. Smart-schedule READY playoff matches (both teams known) using priority queue.
+ *      Each match is assigned to the earliest-free court.
+ *   3. Pre-schedule non-READY playoff bracket matches (future rounds, players unknown).
+ *      All rounds share a single timeline starting after phase 2.
  */
 export function autoSchedule(
   db: BetterSQLite3Database<typeof schema>,
@@ -491,28 +500,8 @@ export function autoSchedule(
     .get()
   if (!tournament) return
 
-  const restMinutes = tournament.rest_minutes ?? 30
-  const defaultDate = tournament.date_start
-
-  _runScheduler(db, tournamentId, courts, restMinutes, defaultDate, true)
-}
-
-/**
- * Core scheduling loop.
- *
- * @param recomputeSoft - if true, recompute not_before_soft for all matches before scheduling
- */
-function _runScheduler(
-  db: BetterSQLite3Database<typeof schema>,
-  tournamentId: string,
-  courts: Array<{ id: string; name: string }>,
-  restMinutes: number,
-  defaultDate: string,
-  recomputeSoft: boolean
-): void {
-  // Gather all playoff rounds for this tournament
   const allEvents = db
-    .select()
+    .select({ id: schema.events.id })
     .from(schema.events)
     .where(eq(schema.events.tournament_id, tournamentId))
     .all()
@@ -525,8 +514,134 @@ function _runScheduler(
     .where(inArray(schema.rounds.event_id, allEvents.map((e) => e.id)))
     .all()
 
+  const allRoundIds = allRounds.map((r) => r.id)
+
+  // Phase 0: clear all non-done scheduled_at and court_id for a clean slate
+  if (allRoundIds.length > 0) {
+    db.update(schema.matches)
+      .set({ scheduled_at: null, court_id: null })
+      .where(
+        and(
+          inArray(schema.matches.round_id, allRoundIds),
+          notInArray(schema.matches.status, ['finished', 'walkover', 'retired'])
+        )
+      )
+      .run()
+  }
+
+  const restMinutes = tournament.rest_minutes ?? 30
+  const defaultDate = tournament.date_start
+  const dayStartMs = getDayStart(db, tournamentId, defaultDate).getTime()
+
+  // Each court tracks when it becomes free next; all start from dayStart.
+  let courtSlots: CourtSlot[] = courts.map((c) => ({ courtId: c.id, endTime: dayStartMs }))
+
+  // Phase 1: schedule round-robin rounds tour by tour
+  const rrRounds = allRounds.filter((r) => r.type === 'round_robin')
+  if (rrRounds.length > 0) {
+    courtSlots = _scheduleRoundRobin(db, tournamentId, rrRounds, defaultDate, courtSlots)
+  }
+
+  // Phase 2: smart-schedule READY playoff matches with priority queue + court assignment
   const playoffRounds = allRounds.filter((r) => r.type === 'playoff')
-  if (playoffRounds.length === 0) return
+  if (playoffRounds.length > 0) {
+    courtSlots = _runScheduler(db, tournamentId, courts, restMinutes, defaultDate, playoffRounds, courtSlots)
+  }
+
+  // Phase 3: pre-schedule non-READY playoff bracket matches (players not yet known).
+  // Uses per-court end times so courts freed earlier don't sit idle.
+  if (playoffRounds.length > 0) {
+    _preScheduleBracket(db, tournamentId, playoffRounds, courtSlots, defaultDate, restMinutes)
+  }
+}
+
+// ─── Internal scheduling helpers ─────────────────────────────────────────────
+
+/**
+ * Schedule all round-robin matches tour by tour using slot-fill.
+ *
+ * Each player appears exactly once per tour, so matches within the same tour
+ * never conflict. Matches are processed in ascending tour order and assigned
+ * to the earliest-free court, so no court sits idle unnecessarily.
+ *
+ * Returns the updated court slots after all RR matches are assigned.
+ */
+function _scheduleRoundRobin(
+  db: BetterSQLite3Database<typeof schema>,
+  tournamentId: string,
+  rrRounds: Array<{ id: string }>,
+  defaultDate: string,
+  initialCourtSlots: CourtSlot[]
+): CourtSlot[] {
+  // All non-done RR matches with both teams known
+  const rrMatches = db
+    .select()
+    .from(schema.matches)
+    .where(
+      and(
+        inArray(schema.matches.round_id, rrRounds.map((r) => r.id)),
+        notInArray(schema.matches.status, ['finished', 'walkover', 'retired'])
+      )
+    )
+    .all()
+    .filter((m) => m.team1_id && m.team2_id)
+
+  if (rrMatches.length === 0) return initialCourtSlots
+
+  // Group by tour number, ascending — ensures tour T completes before tour T+1 starts
+  const byTour = new Map<number, typeof rrMatches>()
+  for (const m of rrMatches) {
+    const tour = m.tour ?? 1
+    if (!byTour.has(tour)) byTour.set(tour, [])
+    byTour.get(tour)!.push(m)
+  }
+  const sortedTours = [...byTour.keys()].sort((a, b) => a - b)
+
+  const slots: CourtSlot[] = initialCourtSlots.map((s) => ({ ...s }))
+
+  for (const tour of sortedTours) {
+    const tourMatches = byTour.get(tour)!
+
+    for (const m of tourMatches) {
+      slots.sort((a, b) => a.endTime - b.endTime)
+      const slot = slots[0]
+      const scheduledDate = new Date(slot.endTime).toISOString().slice(0, 10)
+      const duration = getMatchDuration(db, tournamentId, null, scheduledDate)
+
+      db.update(schema.matches)
+        .set({
+          scheduled_at: new Date(slot.endTime).toISOString(),
+          court_id: slot.courtId
+        })
+        .where(eq(schema.matches.id, m.id))
+        .run()
+
+      slots[0] = { ...slot, endTime: slot.endTime + duration * 60 * 1000 }
+    }
+  }
+
+  return slots
+}
+
+/**
+ * Smart-schedule READY playoff matches (both teams known) using a priority queue.
+ *
+ * Assigns each match to the earliest-free court, respecting:
+ *   - effective_not_before (player rest after previous match)
+ *   - priority (category_depth + cross_pending)
+ *
+ * Returns the updated court slots after all READY matches are assigned.
+ */
+function _runScheduler(
+  db: BetterSQLite3Database<typeof schema>,
+  tournamentId: string,
+  courts: Array<{ id: string; name: string }>,
+  restMinutes: number,
+  defaultDate: string,
+  playoffRounds: Array<{ id: string }>,
+  initialCourtSlots: CourtSlot[]
+): CourtSlot[] {
+  if (playoffRounds.length === 0) return initialCourtSlots
 
   // Load all matches in playoff rounds
   const allMatches = db
@@ -547,108 +662,235 @@ function _runScheduler(
     }
   }
 
-  // Build event lookup: round_id → event_id
+  // Build event lookup for cross_pending computation
+  const allEventIds = db
+    .select({ id: schema.events.id })
+    .from(schema.events)
+    .where(eq(schema.events.tournament_id, tournamentId))
+    .all()
+
+  const allRounds = db
+    .select()
+    .from(schema.rounds)
+    .where(inArray(schema.rounds.event_id, allEventIds.map((e) => e.id)))
+    .all()
+
   const eventByRound = new Map(allRounds.map((r) => [r.id, r.event_id]))
 
-  // Find READY unscheduled matches (both teams known, not finished, no scheduled_at)
-  const readyUnscheduled = allMatches.filter((m) => {
+  // READY matches: both teams known, not finished
+  const readyMatches = allMatches.filter((m) => {
     if (!m.team1_id || !m.team2_id) return false
     if (isDone(m.status)) return false
-    if (m.scheduled_at !== null) return false
     return true
   })
 
-  if (readyUnscheduled.length === 0) return
+  if (readyMatches.length === 0) return initialCourtSlots
 
-  // Optionally recompute not_before_soft for all ready matches
-  if (recomputeSoft) {
-    for (const m of readyUnscheduled) {
-      const notBeforeSoft = computeNotBeforeSoft(
-        db, m.id, m.team1_id, m.team2_id, tournamentId, restMinutes
-      )
-      db.update(schema.matches)
-        .set({ not_before_soft: notBeforeSoft })
-        .where(eq(schema.matches.id, m.id))
-        .run()
-      m.not_before_soft = notBeforeSoft
-    }
+  // Recompute not_before_soft for all ready matches.
+  // Because we cleared scheduled_at in phase 0, only actual_end of completed
+  // matches contributes — so preliminary slots no longer inflate not_before_soft.
+  const dayStart = getDayStart(db, tournamentId, defaultDate)
+  for (const m of readyMatches) {
+    const notBeforeSoft = computeNotBeforeSoft(
+      db, m.id, m.team1_id, m.team2_id, tournamentId, restMinutes
+    )
+    db.update(schema.matches)
+      .set({ not_before_soft: notBeforeSoft })
+      .where(eq(schema.matches.id, m.id))
+      .run()
+    m.not_before_soft = notBeforeSoft
   }
 
   // Compute priority for each match
-  const matchesWithPriority = readyUnscheduled.map((m) => {
+  const matchesWithPriority = readyMatches.map((m) => {
     const bracketRound = bracketRoundByMatch.get(m.id) ?? 1
     const maxBracketRound = maxBracketRoundByRound.get(m.round_id) ?? 1
     const categoryDepth = computeCategoryDepth(bracketRound, maxBracketRound)
     const eventId = eventByRound.get(m.round_id) ?? ''
 
     const playerIds = getPlayerIdsForMatch(db, m.team1_id, m.team2_id)
-    const crossPending = playerIds.length > 0
-      ? Math.max(...playerIds.map((pid) => computeCrossPending(db, pid, eventId, tournamentId)))
-      : 0
+    const crossPending =
+      playerIds.length > 0
+        ? Math.max(...playerIds.map((pid) => computeCrossPending(db, pid, eventId, tournamentId)))
+        : 0
 
     const priority = categoryDepth + crossPending
-
-    const dayStart = getDayStart(db, tournamentId, defaultDate)
-    const effectiveNotBefore = computeEffectiveNotBefore(
-      m.not_before_soft, m.not_before_hard, dayStart
-    )
+    const effectiveNotBefore = computeEffectiveNotBefore(m.not_before_soft, m.not_before_hard, dayStart)
 
     return { match: m, priority, effectiveNotBefore, bracketRound }
   })
 
-  // Sort: priority desc, then effectiveNotBefore asc
+  // Sort: priority desc, effectiveNotBefore asc as tie-breaker
   matchesWithPriority.sort((a, b) => {
     if (b.priority !== a.priority) return b.priority - a.priority
     return a.effectiveNotBefore.getTime() - b.effectiveNotBefore.getTime()
   })
 
-  // Initialize court free-at times from existing scheduled matches
-  const courtFreeAt = new Map<string, number>()
-  for (const court of courts) {
-    // Find the latest estimated end time for this court
-    const courtMatches = allMatches.filter((m) => m.court_id === court.id && m.scheduled_at)
-    let freeAt = getDayStart(db, tournamentId, defaultDate).getTime()
+  // Initialize court slots from the incoming state (carries over from RR phase or dayStart).
+  // If a court has already-completed matches, their end time may push the slot further out.
+  const courtSlots: CourtSlot[] = initialCourtSlots.map((s) => ({ ...s }))
 
-    for (const m of courtMatches) {
-      if (!m.scheduled_at) continue
-      const scheduledMs = new Date(m.scheduled_at).getTime()
-      const br = bracketRoundByMatch.get(m.id) ?? null
-      const scheduledDate = m.scheduled_at.slice(0, 10)
-      const dur = getMatchDuration(db, tournamentId, br, scheduledDate)
-      const estimatedEnd = scheduledMs + dur * 60 * 1000
-      if (estimatedEnd > freeAt) freeAt = estimatedEnd
-    }
-    courtFreeAt.set(court.id, freeAt)
+  const doneMatches = allMatches
+    .filter((m) => isDone(m.status) && m.scheduled_at && m.court_id)
+    .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime())
+
+  for (const m of doneMatches) {
+    const slot = courtSlots.find((s) => s.courtId === m.court_id)
+    if (!slot) continue
+    const scheduledMs = new Date(m.scheduled_at!).getTime()
+    const br = bracketRoundByMatch.get(m.id) ?? null
+    const scheduledDate = m.scheduled_at!.slice(0, 10)
+    const dur = getMatchDuration(db, tournamentId, br, scheduledDate)
+    const endMs = scheduledMs + dur * 60 * 1000
+    if (endMs > slot.endTime) slot.endTime = endMs
   }
 
-  // Greedily assign each match to the best court
-  for (const { match, effectiveNotBefore, bracketRound } of matchesWithPriority) {
-    // Find the court with earliest possible start for this match
-    let bestCourtId: string | null = null
-    let bestStart: number | null = null
+  // Slot-fill: always assign to the earliest-free court
+  const remaining = [...matchesWithPriority]
 
-    for (const court of courts) {
-      const courtFree = courtFreeAt.get(court.id) ?? 0
-      const start = Math.max(courtFree, effectiveNotBefore.getTime())
-      if (bestStart === null || start < bestStart) {
-        bestStart = start
-        bestCourtId = court.id
+  while (remaining.length > 0) {
+    courtSlots.sort((a, b) => a.endTime - b.endTime)
+    const earliestSlot = courtSlots[0]
+    const slotFreeAt = earliestSlot.endTime
+
+    // Matches whose effective_not_before has already passed
+    const available = remaining.filter(
+      (item) => item.effectiveNotBefore.getTime() <= slotFreeAt
+    )
+
+    if (available.length === 0) {
+      // Advance this court to the earliest match's not-before time
+      courtSlots[0] = {
+        ...courtSlots[0],
+        endTime: Math.min(...remaining.map((item) => item.effectiveNotBefore.getTime()))
       }
+      continue
     }
 
-    if (!bestCourtId || bestStart === null) continue
+    // Pick highest-priority available match; ties broken by earliest effectiveNotBefore
+    available.sort((a, b) => {
+      if (b.priority !== a.priority) return b.priority - a.priority
+      return a.effectiveNotBefore.getTime() - b.effectiveNotBefore.getTime()
+    })
+    const best = available[0]
 
-    const scheduledDate = new Date(bestStart).toISOString().slice(0, 10)
-    const dur = getMatchDuration(db, tournamentId, bracketRound, scheduledDate)
-    const scheduledAt = new Date(bestStart).toISOString()
+    const scheduledDate = new Date(slotFreeAt).toISOString().slice(0, 10)
+    const dur = getMatchDuration(db, tournamentId, best.bracketRound, scheduledDate)
 
     db.update(schema.matches)
-      .set({ scheduled_at: scheduledAt, court_id: bestCourtId })
-      .where(eq(schema.matches.id, match.id))
+      .set({
+        scheduled_at: new Date(slotFreeAt).toISOString(),
+        court_id: courtSlots[0].courtId
+      })
+      .where(eq(schema.matches.id, best.match.id))
       .run()
 
-    // Update court free-at
-    courtFreeAt.set(bestCourtId, bestStart + dur * 60 * 1000)
+    courtSlots[0] = { ...courtSlots[0], endTime: slotFreeAt + dur * 60 * 1000 }
+
+    remaining.splice(
+      remaining.findIndex((item) => item.match.id === best.match.id),
+      1
+    )
+  }
+
+  return courtSlots
+}
+
+/**
+ * Pre-schedule all non-READY playoff bracket matches across all rounds.
+ *
+ * Assigns preliminary scheduled_at and court_id to matches whose teams are not
+ * yet known (future bracket rounds). Uses per-court slot-fill so courts freed
+ * earlier by Phase 2 are used immediately. Respects bracket dependencies:
+ * a match cannot start before its child matches end + rest_minutes, since the
+ * winner needs time to recover before the next round.
+ */
+function _preScheduleBracket(
+  db: BetterSQLite3Database<typeof schema>,
+  tournamentId: string,
+  playoffRounds: Array<{ id: string }>,
+  initialCourtSlots: CourtSlot[],
+  defaultDate: string,
+  restMinutes: number
+): void {
+  // Fresh query so we see Phase 2's scheduled_at assignments
+  const allMatches = db
+    .select()
+    .from(schema.matches)
+    .where(inArray(schema.matches.round_id, playoffRounds.map((r) => r.id)))
+    .all()
+
+  // Only matches without a slot yet (cleared by phase 0, not assigned by phase 2)
+  const needsSchedule = allMatches.filter(
+    (m) => !isDone(m.status) && m.scheduled_at === null
+  )
+
+  if (needsSchedule.length === 0) return
+
+  // Compute bracket rounds for ordering and duration lookup
+  const bracketRoundByMatch = new Map<string, number>()
+  for (const round of playoffRounds) {
+    const roundMatches = allMatches.filter((m) => m.round_id === round.id)
+    const brs = computeBracketRoundsForRound(roundMatches)
+    brs.forEach((br, mid) => bracketRoundByMatch.set(mid, br))
+  }
+
+  // Process in ascending bracketRound order (leaf rounds first)
+  needsSchedule.sort((a, b) => {
+    const brA = bracketRoundByMatch.get(a.id) ?? 1
+    const brB = bracketRoundByMatch.get(b.id) ?? 1
+    return brA - brB
+  })
+
+  // Track start time (ms) for every match that has been scheduled, including
+  // Phase 2 READY matches. Used to compute not_before for parent matches.
+  const startMsById = new Map<string, number>()
+  for (const m of allMatches) {
+    if (m.scheduled_at) startMsById.set(m.id, new Date(m.scheduled_at).getTime())
+  }
+
+  const slots: CourtSlot[] = initialCourtSlots.map((s) => ({ ...s }))
+
+  for (const m of needsSchedule) {
+    const br = bracketRoundByMatch.get(m.id) ?? null
+
+    // A match can only start after BOTH its child matches end + rest_minutes.
+    // This ensures the winner has time to rest before the next round.
+    let notBeforeMs = 0
+    for (const childId of [m.left_match_id, m.right_match_id]) {
+      if (!childId) continue
+      const childStartMs = startMsById.get(childId)
+      if (childStartMs === undefined) continue
+      const childBr = bracketRoundByMatch.get(childId) ?? null
+      const childDate = new Date(childStartMs).toISOString().slice(0, 10)
+      const childDur = getMatchDuration(db, tournamentId, childBr, childDate)
+      notBeforeMs = Math.max(notBeforeMs, childStartMs + childDur * 60 * 1000 + restMinutes * 60 * 1000)
+    }
+
+    // Pick the court that gives the earliest actual start time:
+    // actual_start = max(court.endTime, notBeforeMs)
+    slots.sort((a, b) => {
+      const startA = Math.max(a.endTime, notBeforeMs)
+      const startB = Math.max(b.endTime, notBeforeMs)
+      if (startA !== startB) return startA - startB
+      return a.endTime - b.endTime
+    })
+
+    const chosenSlot = slots[0]
+    const startTime = Math.max(chosenSlot.endTime, notBeforeMs)
+    const scheduledDate = new Date(startTime).toISOString().slice(0, 10)
+    const duration = getMatchDuration(db, tournamentId, br, scheduledDate)
+
+    db.update(schema.matches)
+      .set({
+        scheduled_at: new Date(startTime).toISOString(),
+        court_id: chosenSlot.courtId
+      })
+      .where(eq(schema.matches.id, m.id))
+      .run()
+
+    slots[0] = { ...chosenSlot, endTime: startTime + duration * 60 * 1000 }
+    startMsById.set(m.id, startTime)
   }
 }
 
@@ -738,9 +980,10 @@ export function buildQueue(
     const eventId = eventByRound.get(m.round_id) ?? ''
 
     const playerIds = getPlayerIdsForMatch(db, m.team1_id, m.team2_id)
-    const crossPending = playerIds.length > 0
-      ? Math.max(...playerIds.map((pid) => computeCrossPending(db, pid, eventId, tournamentId)))
-      : 0
+    const crossPending =
+      playerIds.length > 0
+        ? Math.max(...playerIds.map((pid) => computeCrossPending(db, pid, eventId, tournamentId)))
+        : 0
 
     const priority = categoryDepth + crossPending
     const dayStart = getDayStart(db, tournamentId, defaultDate)

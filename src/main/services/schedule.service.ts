@@ -263,13 +263,16 @@ export function getOrderOfPlay(
 }
 
 /**
- * Return all matches for a tournament that have a scheduled time.
+ * Return all matches for a tournament that have a scheduled time,
+ * excluding walkovers (bye matches that never had real players).
  */
 export function listScheduled(
   db: BetterSQLite3Database<typeof schema>,
   tournamentId: string
 ): MatchSlot[] {
-  return getMatchesForTournament(db, tournamentId).filter((m) => m.scheduledAt !== null)
+  return getMatchesForTournament(db, tournamentId).filter(
+    (m) => m.scheduledAt !== null && m.status !== 'walkover'
+  )
 }
 
 /**
