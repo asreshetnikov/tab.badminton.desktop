@@ -188,7 +188,7 @@ export function GroupsView() {
       setResultSets([{ s1: '', s2: '' }, { s1: '', s2: '' }])
     }
     setResultStatus(
-      m.status === 'scheduled' || m.status === 'in_progress' ? 'finished' : m.status
+      m.status === 'scheduled' || m.status === 'ready' || m.status === 'live' ? 'finished' : m.status
     )
     setResultWinnerId(m.winner_team_id ?? '')
   }
@@ -628,7 +628,7 @@ export function GroupsView() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle>
-              {resultMatch?.status === 'scheduled' || resultMatch?.status === 'in_progress'
+              {resultMatch?.status === 'scheduled' || resultMatch?.status === 'ready' || resultMatch?.status === 'live'
                 ? t('matches.enterResult')
                 : t('matches.editResult')}
             </DialogTitle>

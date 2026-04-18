@@ -148,7 +148,7 @@ export const matches = sqliteTable('matches', {
   s1: integer('s1'),
   s2: integer('s2'),
   status: text('status', {
-    enum: ['scheduled', 'in_progress', 'finished', 'walkover', 'retired']
+    enum: ['scheduled', 'ready', 'live', 'finished', 'walkover', 'retired']
   })
     .notNull()
     .default('scheduled'),

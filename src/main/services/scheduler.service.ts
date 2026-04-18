@@ -446,8 +446,7 @@ export function onMatchCompleted(
     .all()
     .filter((m) => {
       if (m.id === matchId) return false
-      if (isDone(m.status)) return false
-      if (!m.team1_id || !m.team2_id) return false // not ready yet
+      if (m.status !== 'ready') return false
       const involvedTeams = [m.team1_id, m.team2_id].filter(Boolean) as string[]
       return involvedTeams.some((tid) => allTeamIds.includes(tid))
     })
@@ -573,7 +572,7 @@ function _scheduleRoundRobin(
   defaultDate: string,
   initialCourtSlots: CourtSlot[]
 ): CourtSlot[] {
-  // All non-done RR matches with both teams known
+  // All ready (both teams known) RR matches
   const rrMatches = db
     .select()
     .from(schema.matches)
@@ -584,7 +583,7 @@ function _scheduleRoundRobin(
       )
     )
     .all()
-    .filter((m) => m.team1_id && m.team2_id)
+    .filter((m) => m.status === 'ready')
 
   if (rrMatches.length === 0) return initialCourtSlots
 
@@ -677,12 +676,8 @@ function _runScheduler(
 
   const eventByRound = new Map(allRounds.map((r) => [r.id, r.event_id]))
 
-  // READY matches: both teams known, not finished
-  const readyMatches = allMatches.filter((m) => {
-    if (!m.team1_id || !m.team2_id) return false
-    if (isDone(m.status)) return false
-    return true
-  })
+  // READY matches: both teams known (status === 'ready'), not finished
+  const readyMatches = allMatches.filter((m) => m.status === 'ready')
 
   if (readyMatches.length === 0) return initialCourtSlots
 
@@ -970,7 +965,7 @@ export function buildQueue(
   const defaultDate = tournament?.date_start ?? new Date().toISOString().slice(0, 10)
 
   const readyUnscheduled = allMatches.filter((m) => {
-    return m.team1_id && m.team2_id && !isDone(m.status) && !m.scheduled_at
+    return m.status === 'ready' && !m.scheduled_at
   })
 
   const result = readyUnscheduled.map((m) => {

@@ -236,7 +236,8 @@
   "matches": {
     "status": {
       "scheduled": "Scheduled",
-      "in_progress": "In Progress",
+      "ready": "Ready",
+      "live": "Live",
       "finished": "Finished",
       "walkover": "Walkover",
       "retired": "Retired"

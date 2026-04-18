@@ -112,7 +112,9 @@ describe('generateBracket', () => {
     const matches = generateBracket(db, roundId)
     expect(matches).toHaveLength(7)
     expect(matches.filter((m) => m.status === 'walkover')).toHaveLength(0)
-    expect(matches.filter((m) => m.status === 'scheduled')).toHaveLength(7)
+    // 4 first-round matches with both teams → 'ready'; 3 bracket-only matches → 'scheduled'
+    expect(matches.filter((m) => m.status === 'ready')).toHaveLength(4)
+    expect(matches.filter((m) => m.status === 'scheduled')).toHaveLength(3)
   })
 
   it('8 teams → 4 first-round matches, each with both teams set', () => {
@@ -141,7 +143,7 @@ describe('generateBracket', () => {
     for (let i = 1; i <= 5; i++) teams.push(addTeam(`T${i}`, i))
     const matches = generateBracket(db, roundId)
     const r1Real = matches.filter(
-      (m) => m.left_match_id === null && m.status === 'scheduled'
+      (m) => m.left_match_id === null && m.status === 'ready'
     )
     expect(r1Real).toHaveLength(1)
     // The real R1 match should be between seeds 4 and 5

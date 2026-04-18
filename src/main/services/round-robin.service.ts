@@ -82,6 +82,7 @@ export function generateMatches(
       .values({
         id,
         round_id: roundId,
+        status: 'ready',
         team1_id: pair.team1_id,
         team2_id: pair.team2_id,
         tour: pair.tour

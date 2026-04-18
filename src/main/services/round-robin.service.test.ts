@@ -128,10 +128,10 @@ describe('generateMatches', () => {
     expect(generateMatches(db, roundId)).toHaveLength(6)
   })
 
-  it('all matches have status "scheduled"', () => {
+  it('all matches have status "ready"', () => {
     const { db, roundId, addTeam } = setup()
     addTeam('Alpha'); addTeam('Beta'); addTeam('Gamma')
-    expect(generateMatches(db, roundId).every((m) => m.status === 'scheduled')).toBe(true)
+    expect(generateMatches(db, roundId).every((m) => m.status === 'ready')).toBe(true)
   })
 
   it('matches include team names', () => {

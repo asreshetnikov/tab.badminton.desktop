@@ -121,9 +121,11 @@ export function generateBracket(
     const team2Id = slot2 <= n ? roundTeams[slot2 - 1].team_id : null
 
     let winnerId: string | null = null
-    let status: 'scheduled' | 'walkover' = 'scheduled'
+    let status: 'scheduled' | 'ready' | 'walkover' = 'scheduled'
 
-    if (team1Id && !team2Id) {
+    if (team1Id && team2Id) {
+      status = 'ready'
+    } else if (team1Id && !team2Id) {
       winnerId = team1Id
       status = 'walkover'
     } else if (!team1Id && team2Id) {
@@ -183,9 +185,18 @@ export function advanceWinner(
   if (!parent) throw new Error(`Parent match not found: ${match.win_match_id}`)
 
   const isLeftChild = parent.left_match_id === matchId
+  const update = isLeftChild
+    ? { team1_id: match.winner_team_id }
+    : { team2_id: match.winner_team_id }
+
+  // After applying the winner, check if both team slots are now filled → set ready
+  const newTeam1 = isLeftChild ? match.winner_team_id : parent.team1_id
+  const newTeam2 = isLeftChild ? parent.team2_id : match.winner_team_id
+  const newStatus = newTeam1 && newTeam2 ? 'ready' : parent.status
+
   db
     .update(schema.matches)
-    .set(isLeftChild ? { team1_id: match.winner_team_id } : { team2_id: match.winner_team_id })
+    .set({ ...update, status: newStatus as 'scheduled' | 'ready' | 'live' | 'finished' | 'walkover' | 'retired' })
     .where(eq(schema.matches.id, parent.id))
     .run()
 }

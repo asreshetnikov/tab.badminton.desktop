@@ -61,7 +61,7 @@ function setupFixtures(db: ReturnType<typeof createTestDb>) {
       round_id: 'r1',
       team1_id: 'tA',
       team2_id: 'tB',
-      status: 'scheduled',
+      status: 'ready',
       scheduled_at: '2026-04-14T10:00:00'
     })
     .run()
@@ -83,7 +83,7 @@ function setupFixtures(db: ReturnType<typeof createTestDb>) {
       round_id: 'r1',
       team1_id: 'tB',
       team2_id: 'tAC',
-      status: 'scheduled'
+      status: 'ready'
     })
     .run()
 }

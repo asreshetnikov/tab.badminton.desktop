@@ -1,4 +1,4 @@
-export type MatchStatus = 'scheduled' | 'in_progress' | 'finished' | 'walkover' | 'retired'
+export type MatchStatus = 'scheduled' | 'ready' | 'live' | 'finished' | 'walkover' | 'retired'
 
 export interface MatchSet {
   id: string

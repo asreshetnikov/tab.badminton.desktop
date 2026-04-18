@@ -350,7 +350,7 @@ export function TournamentSchedule() {
         ? m.sets.map((s) => ({ s1: String(s.s1), s2: String(s.s2) }))
         : [{ s1: '', s2: '' }, { s1: '', s2: '' }]
     )
-    setResultStatus(m.status === 'scheduled' || m.status === 'in_progress' ? 'finished' : m.status)
+    setResultStatus(m.status === 'scheduled' || m.status === 'ready' || m.status === 'live' ? 'finished' : m.status)
     setResultWinnerId(m.winner_team_id ?? '')
   }
 
