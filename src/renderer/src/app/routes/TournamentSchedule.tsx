@@ -176,25 +176,36 @@ export function TournamentSchedule() {
     return true
   }
 
-  // Unscheduled: filtered, sorted by priority desc → notBeforeSoft asc
+  // Left column: scheduled/ready — waiting to be called to court
+  // Sorted by scheduledAt asc (earliest slot first); matches without a slot go to the bottom
   const filteredUnscheduled = useMemo(() => {
-    const filtered = unscheduled.filter(matchFilter)
+    const filtered = allMatches.filter(
+      (m) => (m.status === 'scheduled' || m.status === 'ready') && matchFilter(m)
+    )
     return filtered.sort((a, b) => {
+      const ta = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Infinity
+      const tb = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Infinity
+      if (ta !== tb) return ta - tb
+      // tie-break: priority desc
       const pa = priorityByMatch.get(a.id) ?? -1
       const pb = priorityByMatch.get(b.id) ?? -1
-      if (pb !== pa) return pb - pa
-      const ta = a.notBeforeSoft ? new Date(a.notBeforeSoft).getTime() : Infinity
-      const tb = b.notBeforeSoft ? new Date(b.notBeforeSoft).getTime() : Infinity
-      return ta - tb
+      return pb - pa
     })
-  }, [unscheduled, categoryFilter, roundFilter, priorityByMatch])
-  // Unique sorted dates from all scheduled matches
+  }, [allMatches, categoryFilter, roundFilter, priorityByMatch])
+
+  // Right column: live/finished/walkover/retired — active or completed matches
+  const rightMatches = useMemo(
+    () => allMatches.filter((m) => m.status !== 'scheduled' && m.status !== 'ready'),
+    [allMatches]
+  )
+
+  // Unique sorted dates from right-column matches
   const scheduledDates = useMemo(() => {
     const dates = new Set(
-      scheduled.map((m) => m.scheduledAt?.slice(0, 10)).filter(Boolean) as string[]
+      rightMatches.map((m) => m.scheduledAt?.slice(0, 10)).filter(Boolean) as string[]
     )
     return [...dates].sort()
-  }, [scheduled])
+  }, [rightMatches])
 
   // Auto-select first available date when data loads (if current date has no matches)
   useEffect(() => {
@@ -203,13 +214,13 @@ export function TournamentSchedule() {
     }
   }, [scheduledDates])
 
-  // Scheduled: filtered by selected date + other filters, grouped by court
+  // Right column filtered by selected date + other filters
   const filteredScheduled = useMemo(
     () =>
-      scheduled
+      rightMatches
         .filter((m) => m.scheduledAt?.startsWith(date) && matchFilter(m))
         .sort((a, b) => (b.scheduledAt ?? '').localeCompare(a.scheduledAt ?? '')),
-    [scheduled, date, categoryFilter, roundFilter]
+    [rightMatches, date, categoryFilter, roundFilter]
   )
 
   // ─── Auto schedule ─────────────────────────────────────────────────────────
@@ -332,6 +343,18 @@ export function TournamentSchedule() {
     setIsSaving(true)
     try {
       await api.schedule.assignSlot(assignMatch.id, { courtId: null, datetime: null })
+      closeAssign()
+      await loadData()
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  async function handleStartMatch() {
+    if (!assignMatch) return
+    setIsSaving(true)
+    try {
+      await api.matches.startMatch(assignMatch.id)
       closeAssign()
       await loadData()
     } finally {
@@ -562,6 +585,7 @@ export function TournamentSchedule() {
                     match={m}
                     priority={priorityByMatch.get(m.id) ?? null}
                     maxBracketRound={maxBracketRoundByRound.get(m.roundId)}
+                    timePrefix={m.scheduledAt ? formatTime(m.scheduledAt) : undefined}
                     action={
                       <Button
                         size="sm"
@@ -740,17 +764,30 @@ export function TournamentSchedule() {
           )}
 
           <DialogFooter className="gap-2">
-            {assignMatch?.scheduledAt && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleUnassign}
-                disabled={isSaving}
-                className="mr-auto text-muted-foreground"
-              >
-                {t('schedule.unassign')}
-              </Button>
-            )}
+            <div className="mr-auto flex gap-2">
+              {assignMatch?.scheduledAt && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleUnassign}
+                  disabled={isSaving}
+                  className="text-muted-foreground"
+                >
+                  {t('schedule.unassign')}
+                </Button>
+              )}
+              {assignMatch?.status === 'ready' && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={handleStartMatch}
+                  disabled={isSaving}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {t('schedule.startMatch')}
+                </Button>
+              )}
+            </div>
             <Button variant="outline" onClick={closeAssign} disabled={isSaving}>
               {t('common.cancel')}
             </Button>
@@ -939,6 +976,11 @@ function MatchCard({
           {match.s1 !== null && match.s2 !== null && (
             <span className="shrink-0 font-mono font-semibold tabular-nums">
               {match.s1}–{match.s2}
+            </span>
+          )}
+          {match.status === 'live' && (
+            <span className="shrink-0 rounded bg-green-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              {t('matches.status.live')}
             </span>
           )}
           {(match.status === 'walkover' || match.status === 'retired') && (

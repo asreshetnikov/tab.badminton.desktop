@@ -25,6 +25,16 @@ export function registerMatchesHandler(): void {
   ipcMain.handle('matches:generatePlayoff', (_e, roundId: string) =>
     generateBracket(getDb(), roundId)
   )
+  ipcMain.handle('matches:startMatch', (_e, matchId: string) => {
+    const db = getDb()
+    const now = new Date().toISOString()
+    db.update(schema.matches)
+      .set({ status: 'live', actual_start: now })
+      .where(eq(schema.matches.id, matchId))
+      .run()
+    return new MatchRepository(db).getById(matchId)
+  })
+
   ipcMain.handle('matches:updateResult', (_e, matchId: string, dto: UpdateMatchResultDTO) => {
     const db = getDb()
     const match = new MatchRepository(db).updateResult(matchId, dto)
