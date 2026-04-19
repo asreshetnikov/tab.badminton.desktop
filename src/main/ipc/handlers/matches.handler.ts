@@ -71,23 +71,23 @@ export function registerMatchesHandler(): void {
       .where(eq(schema.rounds.id, match.round_id))
       .get()
 
+    // Find tournament_id via event (needed for both playoff and RR)
+    const event = db
+      .select({ tournament_id: schema.events.tournament_id })
+      .from(schema.events)
+      .where(eq(schema.events.id, round!.event_id))
+      .get()
+
     let standings: ReturnType<RoundTeamRepository['listTableWithTeamsByRound']> = []
     if (round?.type === 'playoff') {
       advanceWinner(db, matchId)
-
-      // Find tournament_id via event
-      const event = db
-        .select({ tournament_id: schema.events.tournament_id })
-        .from(schema.events)
-        .where(eq(schema.events.id, round.event_id))
-        .get()
-
-      if (event) {
-        onMatchCompleted(db, matchId, event.tournament_id)
-      }
     } else {
       updateStandings(db, match.round_id)
       standings = new RoundTeamRepository(db).listTableWithTeamsByRound(match.round_id)
+    }
+
+    if (event) {
+      onMatchCompleted(db, matchId, event.tournament_id)
     }
 
     return { match, standings }

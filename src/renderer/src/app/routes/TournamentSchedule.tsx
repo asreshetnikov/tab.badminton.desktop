@@ -69,6 +69,10 @@ export function TournamentSchedule() {
   // Auto-schedule
   const [isAutoScheduling, setIsAutoScheduling] = useState(false)
 
+  // Drag-and-drop
+  const [draggedMatchId, setDraggedMatchId] = useState<string | null>(null)
+  const [dragOverCourtId, setDragOverCourtId] = useState<string | null>(null)
+
   // Filters
   const [date, setDate] = useState(todayIso)
   const [categoryFilter, setCategoryFilter] = useState('all')
@@ -177,6 +181,22 @@ export function TournamentSchedule() {
     if (roundFilter !== 'all' && m.roundId !== roundFilter) return false
     return true
   }
+
+  function canStartMatch(m: MatchSlot): boolean {
+    return (m.status === 'scheduled' || m.status === 'ready') && !!m.team1Id && !!m.team2Id
+  }
+
+  // Courts that currently have a live match
+  const occupiedCourtIds = useMemo(
+    () => new Set(allMatches.filter((m) => m.status === 'live' && m.courtId).map((m) => m.courtId!)),
+    [allMatches]
+  )
+
+  // Courts available for a new live match (no live match currently)
+  const availableCourts = useMemo(
+    () => courts.filter((c) => !occupiedCourtIds.has(c.id)),
+    [courts, occupiedCourtIds]
+  )
 
   // Left column: scheduled/ready — waiting to be called to court
   // Sorted by scheduledAt asc (earliest slot first); matches without a slot go to the bottom
@@ -391,6 +411,23 @@ export function TournamentSchedule() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // ─── Drag-and-drop: drop on court ─────────────────────────────────────────
+
+  async function handleDropOnCourt(courtId: string) {
+    const match = draggedMatchId ? allMatches.find((m) => m.id === draggedMatchId) : null
+    setDraggedMatchId(null)
+    setDragOverCourtId(null)
+    if (!match || !canStartMatch(match)) return
+    const now = new Date()
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const actualStart =
+      `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` +
+      `T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    await api.schedule.assignSlot(match.id, { courtId, datetime: match.scheduledAt || null })
+    await api.matches.startMatch(match.id, actualStart)
+    await loadData()
   }
 
   // ─── Result dialog ─────────────────────────────────────────────────────────
@@ -611,7 +648,13 @@ export function TournamentSchedule() {
               <p className="text-sm text-muted-foreground">{t('schedule.noUnscheduled')}</p>
             ) : (
               filteredUnscheduled.map((m) => (
-                <div key={m.id}>
+                <div
+                  key={m.id}
+                  draggable={canStartMatch(m)}
+                  onDragStart={() => setDraggedMatchId(m.id)}
+                  onDragEnd={() => { setDraggedMatchId(null); setDragOverCourtId(null) }}
+                  className={canStartMatch(m) ? 'cursor-grab active:cursor-grabbing' : undefined}
+                >
                   <MatchCard
                     match={m}
                     priority={priorityByMatch.get(m.id) ?? null}
@@ -661,6 +704,37 @@ export function TournamentSchedule() {
             )}
           </div>
           <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+            {/* Court drop zones — always shown at top for courts without a live match */}
+            {availableCourts.length > 0 && (
+              <div className="mb-2 flex flex-col gap-1.5">
+                {availableCourts.map((court) => {
+                  const isOver = dragOverCourtId === court.id
+                  const isDragging = draggedMatchId !== null
+                  return (
+                    <div
+                      key={court.id}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCourtId(court.id) }}
+                      onDragLeave={() => setDragOverCourtId(null)}
+                      onDrop={() => handleDropOnCourt(court.id)}
+                      className={cn(
+                        'flex min-h-[2.625rem] items-center gap-2 rounded-lg border-2 border-dashed px-3 py-2 text-xs transition-colors',
+                        isOver
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : isDragging
+                          ? 'border-green-300 bg-green-50/50 text-green-600'
+                          : 'border-muted-foreground/25 text-muted-foreground'
+                      )}
+                    >
+                      <span className="shrink-0 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">
+                        {court.name}
+                      </span>
+                      <span>{isOver ? t('schedule.dropToStart') : t('schedule.courtFree')}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
             {filteredScheduled.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('schedule.noScheduled')}</p>
             ) : (
@@ -668,7 +742,7 @@ export function TournamentSchedule() {
                 const elapsedMinutes =
                   m.status === 'live' && m.actualStart
                     ? Math.floor((Date.now() - new Date(m.actualStart).getTime()) / 60_000)
-                    : m.status === 'finished' && m.actualStart && m.actualEnd
+                    : (m.status === 'finished' || m.status === 'retired' || m.status === 'walkover') && m.actualStart && m.actualEnd
                     ? Math.floor((new Date(m.actualEnd).getTime() - new Date(m.actualStart).getTime()) / 60_000)
                     : undefined
                 return (

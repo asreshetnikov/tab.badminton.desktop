@@ -292,6 +292,8 @@
     "startMatch": "Start Match",
     "actualStart": "Actual start time",
     "courtBusy": "This court already has a live match. Finish it before starting another.",
+    "courtFree": "Drop here to start on this court",
+    "dropToStart": "Release to start match",
     "vs": "vs",
     "tbd": "TBD",
     "scheduledMatches": "On Court / Done",
