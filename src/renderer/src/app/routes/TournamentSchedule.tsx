@@ -664,11 +664,19 @@ export function TournamentSchedule() {
             {filteredScheduled.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('schedule.noScheduled')}</p>
             ) : (
-              filteredScheduled.map((m) => (
+              filteredScheduled.map((m) => {
+                const elapsedMinutes =
+                  m.status === 'live' && m.actualStart
+                    ? Math.floor((Date.now() - new Date(m.actualStart).getTime()) / 60_000)
+                    : m.status === 'finished' && m.actualStart && m.actualEnd
+                    ? Math.floor((new Date(m.actualEnd).getTime() - new Date(m.actualStart).getTime()) / 60_000)
+                    : undefined
+                return (
                 <MatchCard
                   key={m.id}
                   match={m}
                   maxBracketRound={maxBracketRoundByRound.get(m.roundId)}
+                  elapsedMinutes={elapsedMinutes}
                   timePrefix={
                     m.actualStart
                       ? formatTime(m.actualStart)
@@ -699,7 +707,8 @@ export function TournamentSchedule() {
                     </div>
                   }
                 />
-              ))
+                )
+              })
             )}
           </div>
         </div>
@@ -986,12 +995,14 @@ export function TournamentSchedule() {
 function MatchCard({
   match,
   timePrefix,
+  elapsedMinutes,
   priority,
   maxBracketRound,
   action
 }: {
   match: MatchSlot
   timePrefix?: string
+  elapsedMinutes?: number
   priority?: number | null
   maxBracketRound?: number
   action?: React.ReactNode
@@ -1004,8 +1015,15 @@ function MatchCard({
         CATEGORY_COLORS[match.eventCategory] ?? 'bg-gray-50 border-gray-200'
       )}
     >
-      {timePrefix && (
-        <span className="shrink-0 font-mono font-medium">{timePrefix}</span>
+      {(timePrefix || elapsedMinutes !== undefined) && (
+        <div className="shrink-0 flex flex-col items-center">
+          {timePrefix && (
+            <span className="font-mono font-medium leading-none">{timePrefix}</span>
+          )}
+          {elapsedMinutes !== undefined && (
+            <span className="mt-0.5 text-[11px] leading-none opacity-60">{elapsedMinutes}'</span>
+          )}
+        </div>
       )}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
