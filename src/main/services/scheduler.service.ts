@@ -17,6 +17,7 @@
 import { eq, inArray, and, notInArray } from 'drizzle-orm'
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../db/schema'
+import { toLocalISO, toLocalDateStr } from '../utils/datetime'
 
 const DEFAULT_START_TIME = '09:00'
 const DEFAULT_MATCH_DURATION = 60
@@ -311,7 +312,7 @@ export function computeNotBeforeSoft(
     .where(eq(schema.tournaments.id, tournamentId))
     .get()
 
-  const defaultDate = tournament?.date_start ?? new Date().toISOString().slice(0, 10)
+  const defaultDate = tournament?.date_start ?? toLocalDateStr(new Date())
 
   // Compute last_end per player, then take max(last_end + rest) across all players
   let maxNotBefore: number | null = null
@@ -354,7 +355,7 @@ export function computeNotBeforeSoft(
   }
 
   if (maxNotBefore === null) return null
-  return new Date(maxNotBefore).toISOString()
+  return toLocalISO(new Date(maxNotBefore))
 }
 
 /**
@@ -384,7 +385,7 @@ export function onMatchCompleted(
   matchId: string,
   tournamentId: string
 ): void {
-  const now = new Date().toISOString()
+  const now = toLocalISO(new Date())
 
   const match = db.select().from(schema.matches).where(eq(schema.matches.id, matchId)).get()
   if (!match) return
@@ -604,13 +605,12 @@ function _scheduleRoundRobin(
     for (const m of tourMatches) {
       slots.sort((a, b) => a.endTime - b.endTime)
       const slot = slots[0]
-      const scheduledDate = new Date(slot.endTime).toISOString().slice(0, 10)
+      const scheduledDate = toLocalDateStr(new Date(slot.endTime))
       const duration = getMatchDuration(db, tournamentId, null, scheduledDate)
 
       db.update(schema.matches)
         .set({
-          scheduled_at: new Date(slot.endTime).toISOString(),
-          court_id: slot.courtId
+          scheduled_at: toLocalISO(new Date(slot.endTime))
         })
         .where(eq(schema.matches.id, m.id))
         .run()
@@ -725,13 +725,15 @@ function _runScheduler(
   // If a court has already-completed matches, their end time may push the slot further out.
   const courtSlots: CourtSlot[] = initialCourtSlots.map((s) => ({ ...s }))
 
+  // Distribute already-done matches across virtual court slots (round-robin)
+  // to reflect their end times and avoid scheduling new matches too early.
   const doneMatches = allMatches
-    .filter((m) => isDone(m.status) && m.scheduled_at && m.court_id)
+    .filter((m) => isDone(m.status) && m.scheduled_at)
     .sort((a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime())
 
-  for (const m of doneMatches) {
-    const slot = courtSlots.find((s) => s.courtId === m.court_id)
-    if (!slot) continue
+  for (let i = 0; i < doneMatches.length; i++) {
+    const m = doneMatches[i]
+    const slot = courtSlots[i % courtSlots.length]
     const scheduledMs = new Date(m.scheduled_at!).getTime()
     const br = bracketRoundByMatch.get(m.id) ?? null
     const scheduledDate = m.scheduled_at!.slice(0, 10)
@@ -769,13 +771,12 @@ function _runScheduler(
     })
     const best = available[0]
 
-    const scheduledDate = new Date(slotFreeAt).toISOString().slice(0, 10)
+    const scheduledDate = toLocalDateStr(new Date(slotFreeAt))
     const dur = getMatchDuration(db, tournamentId, best.bracketRound, scheduledDate)
 
     db.update(schema.matches)
       .set({
-        scheduled_at: new Date(slotFreeAt).toISOString(),
-        court_id: courtSlots[0].courtId
+        scheduled_at: toLocalISO(new Date(slotFreeAt))
       })
       .where(eq(schema.matches.id, best.match.id))
       .run()
@@ -857,7 +858,7 @@ function _preScheduleBracket(
       const childStartMs = startMsById.get(childId)
       if (childStartMs === undefined) continue
       const childBr = bracketRoundByMatch.get(childId) ?? null
-      const childDate = new Date(childStartMs).toISOString().slice(0, 10)
+      const childDate = toLocalDateStr(new Date(childStartMs))
       const childDur = getMatchDuration(db, tournamentId, childBr, childDate)
       notBeforeMs = Math.max(notBeforeMs, childStartMs + childDur * 60 * 1000 + restMinutes * 60 * 1000)
     }
@@ -873,13 +874,12 @@ function _preScheduleBracket(
 
     const chosenSlot = slots[0]
     const startTime = Math.max(chosenSlot.endTime, notBeforeMs)
-    const scheduledDate = new Date(startTime).toISOString().slice(0, 10)
+    const scheduledDate = toLocalDateStr(new Date(startTime))
     const duration = getMatchDuration(db, tournamentId, br, scheduledDate)
 
     db.update(schema.matches)
       .set({
-        scheduled_at: new Date(startTime).toISOString(),
-        court_id: chosenSlot.courtId
+        scheduled_at: toLocalISO(new Date(startTime))
       })
       .where(eq(schema.matches.id, m.id))
       .run()
@@ -962,7 +962,7 @@ export function buildQueue(
     .where(eq(schema.tournaments.id, tournamentId))
     .get()
 
-  const defaultDate = tournament?.date_start ?? new Date().toISOString().slice(0, 10)
+  const defaultDate = tournament?.date_start ?? toLocalDateStr(new Date())
 
   const readyUnscheduled = allMatches.filter((m) => {
     return m.status === 'ready' && !m.scheduled_at
@@ -989,7 +989,7 @@ export function buildQueue(
       priority,
       categoryDepth,
       crossPending,
-      effectiveNotBefore: effective.toISOString(),
+      effectiveNotBefore: toLocalISO(effective),
       notBeforeSoft: m.not_before_soft,
       notBeforeHard: m.not_before_hard
     }

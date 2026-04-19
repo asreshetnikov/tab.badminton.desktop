@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron'
-import { eq } from 'drizzle-orm'
+import { and, eq, ne } from 'drizzle-orm'
+import { toLocalISO } from '../../utils/datetime'
 import { getDb } from '../../db/client'
 import * as schema from '../../db/schema'
 import { MatchRepository } from '../../db/repositories/match.repo'
@@ -25,11 +26,36 @@ export function registerMatchesHandler(): void {
   ipcMain.handle('matches:generatePlayoff', (_e, roundId: string) =>
     generateBracket(getDb(), roundId)
   )
-  ipcMain.handle('matches:startMatch', (_e, matchId: string) => {
+  ipcMain.handle('matches:startMatch', (_e, matchId: string, actualStart?: string) => {
     const db = getDb()
-    const now = new Date().toISOString()
+
+    const match = db
+      .select({ court_id: schema.matches.court_id })
+      .from(schema.matches)
+      .where(eq(schema.matches.id, matchId))
+      .get()
+
+    if (match?.court_id) {
+      const courtConflict = db
+        .select({ id: schema.matches.id })
+        .from(schema.matches)
+        .where(
+          and(
+            eq(schema.matches.court_id, match.court_id),
+            eq(schema.matches.status, 'live'),
+            ne(schema.matches.id, matchId)
+          )
+        )
+        .get()
+
+      if (courtConflict) {
+        throw new Error('COURT_BUSY')
+      }
+    }
+
+    const startTime = actualStart ?? toLocalISO(new Date())
     db.update(schema.matches)
-      .set({ status: 'live', actual_start: now })
+      .set({ status: 'live', actual_start: startTime })
       .where(eq(schema.matches.id, matchId))
       .run()
     return new MatchRepository(db).getById(matchId)

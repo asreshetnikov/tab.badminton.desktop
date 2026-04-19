@@ -97,7 +97,9 @@ export function TournamentSchedule() {
   const [assignCourtId, setAssignCourtId] = useState('')
   const [assignDatetime, setAssignDatetime] = useState('')
   const [assignNotBeforeHard, setAssignNotBeforeHard] = useState('')
+  const [assignActualStart, setAssignActualStart] = useState('')
   const [conflicts, setConflicts] = useState<ConflictInfo[]>([])
+  const [startMatchError, setStartMatchError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
   // Result dialog
@@ -215,11 +217,16 @@ export function TournamentSchedule() {
   }, [scheduledDates])
 
   // Right column filtered by selected date + other filters
+  // Sort descending by actual start (if recorded), falling back to scheduled time
   const filteredScheduled = useMemo(
     () =>
       rightMatches
         .filter((m) => m.scheduledAt?.startsWith(date) && matchFilter(m))
-        .sort((a, b) => (b.scheduledAt ?? '').localeCompare(a.scheduledAt ?? '')),
+        .sort((a, b) => {
+          const ta = a.actualStart ?? a.scheduledAt ?? ''
+          const tb = b.actualStart ?? b.scheduledAt ?? ''
+          return tb.localeCompare(ta)
+        }),
     [rightMatches, date, categoryFilter, roundFilter]
   )
 
@@ -271,14 +278,24 @@ export function TournamentSchedule() {
   function openAssign(match: MatchSlot) {
     setAssignMatch(match)
     setAssignCourtId(match.courtId ?? '')
-    setAssignDatetime(match.scheduledAt ?? `${date}T10:00`)
+    setAssignDatetime(match.scheduledAt ? match.scheduledAt.slice(0, 16) : `${date}T10:00`)
     setAssignNotBeforeHard(match.notBeforeHard ? match.notBeforeHard.slice(0, 16) : '')
+    if ((match.status === 'scheduled' || match.status === 'ready') && match.team1Id && match.team2Id) {
+      const now = new Date()
+      const pad = (n: number) => String(n).padStart(2, '0')
+      setAssignActualStart(
+        `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`
+      )
+    } else {
+      setAssignActualStart('')
+    }
     setConflicts([])
   }
 
   function closeAssign() {
     setAssignMatch(null)
     setConflicts([])
+    setStartMatchError(null)
   }
 
   async function handleSave() {
@@ -351,12 +368,26 @@ export function TournamentSchedule() {
   }
 
   async function handleStartMatch() {
-    if (!assignMatch) return
+    if (!assignMatch || !assignCourtId) return
+    setStartMatchError(null)
     setIsSaving(true)
     try {
-      await api.matches.startMatch(assignMatch.id)
+      await Promise.all([
+        api.schedule.assignSlot(assignMatch.id, {
+          courtId: assignCourtId,
+          datetime: assignDatetime || null
+        }),
+        api.schedule.setNotBeforeHard(assignMatch.id, assignNotBeforeHard ? `${assignNotBeforeHard}:00` : null)
+      ])
+      const actualStartIso = assignActualStart || undefined
+      await api.matches.startMatch(assignMatch.id, actualStartIso)
       closeAssign()
       await loadData()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg.includes('COURT_BUSY')) {
+        setStartMatchError(t('schedule.courtBusy'))
+      }
     } finally {
       setIsSaving(false)
     }
@@ -638,7 +669,13 @@ export function TournamentSchedule() {
                   key={m.id}
                   match={m}
                   maxBracketRound={maxBracketRoundByRound.get(m.roundId)}
-                  timePrefix={m.scheduledAt ? formatTime(m.scheduledAt) : undefined}
+                  timePrefix={
+                    m.actualStart
+                      ? formatTime(m.actualStart)
+                      : m.scheduledAt
+                      ? formatTime(m.scheduledAt)
+                      : undefined
+                  }
                   action={
                     <div className="flex shrink-0 gap-1">
                       <Button
@@ -716,6 +753,20 @@ export function TournamentSchedule() {
                 />
               </div>
 
+              {/* Actual start — shown only when both teams are known */}
+              {(assignMatch?.status === 'scheduled' || assignMatch?.status === 'ready') &&
+               assignMatch.team1Id && assignMatch.team2Id && (
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">{t('schedule.actualStart')}</label>
+                  <input
+                    type="datetime-local"
+                    value={assignActualStart}
+                    onChange={(e) => setAssignActualStart(e.target.value)}
+                    className="w-full rounded border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+              )}
+
               {/* Not before hard */}
               <div className="space-y-1">
                 <label className="text-sm font-medium">{t('schedule.notBeforeHard')}</label>
@@ -763,6 +814,13 @@ export function TournamentSchedule() {
             </div>
           )}
 
+          {startMatchError && (
+            <div className="mx-6 mb-2 flex items-center gap-1.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              {startMatchError}
+            </div>
+          )}
+
           <DialogFooter className="gap-2">
             <div className="mr-auto flex gap-2">
               {assignMatch?.scheduledAt && (
@@ -776,12 +834,14 @@ export function TournamentSchedule() {
                   {t('schedule.unassign')}
                 </Button>
               )}
-              {assignMatch?.status === 'ready' && (
+              {(assignMatch?.status === 'scheduled' || assignMatch?.status === 'ready') &&
+               assignMatch.team1Id && assignMatch.team2Id && (
                 <Button
                   variant="default"
                   size="sm"
                   onClick={handleStartMatch}
-                  disabled={isSaving}
+                  disabled={isSaving || !assignCourtId}
+                  title={!assignCourtId ? 'Select a court first' : undefined}
                   className="bg-green-600 hover:bg-green-700 text-white"
                 >
                   {t('schedule.startMatch')}
