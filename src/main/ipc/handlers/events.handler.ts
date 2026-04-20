@@ -13,7 +13,18 @@ export function registerEventsHandler(): void {
   ipcMain.handle('events:update', (_e, id: string, data: UpdateEventDTO) =>
     new EventRepository(getDb()).update(id, data)
   )
-  ipcMain.handle('events:delete', (_e, id: string) =>
-    new EventRepository(getDb()).delete(id)
+  ipcMain.handle('events:reorder', (_e, ids: string[]) =>
+    new EventRepository(getDb()).reorder(ids)
   )
+  ipcMain.handle('events:delete', (_e, id: string) => {
+    try {
+      new EventRepository(getDb()).delete(id)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      if (msg === 'EVENT_HAS_ENTRIES' || msg === 'EVENT_HAS_ROUNDS') {
+        return { error: msg }
+      }
+      throw err
+    }
+  })
 }

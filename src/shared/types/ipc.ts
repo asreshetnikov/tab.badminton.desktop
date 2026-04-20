@@ -82,7 +82,8 @@ export interface AppAPI {
     create(data: CreateEventDTO): Promise<Event>
     listByTournament(tournamentId: string): Promise<Event[]>
     update(id: string, data: UpdateEventDTO): Promise<Event>
-    delete(id: string): Promise<void>
+    delete(id: string): Promise<{ error: string } | void>
+    reorder(ids: string[]): Promise<void>
   }
 
   tournamentTeams: {

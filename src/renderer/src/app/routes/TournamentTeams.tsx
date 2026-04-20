@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, ShieldPlus, Users } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
@@ -34,6 +34,7 @@ const DOUBLES_GENDERS: Record<string, [PlayerGender, PlayerGender] | null> = {
 export function TournamentTeams() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { t } = useTranslation()
 
   const [tournament, setTournament] = useState<Tournament | undefined>()
@@ -71,7 +72,11 @@ export function TournamentTeams() {
       setEntries(entries)
       setAllTeams(teams)
       setAcceptedPlayers(players.filter((p) => p.status === 'accepted'))
-      setActiveEventId(events[0]?.id ?? null)
+      const requestedEvent = searchParams.get('event')
+      const initialEvent = requestedEvent && events.some((e) => e.id === requestedEvent)
+        ? requestedEvent
+        : events[0]?.id ?? null
+      setActiveEventId(initialEvent)
       setIsLoading(false)
     })
   }, [id])

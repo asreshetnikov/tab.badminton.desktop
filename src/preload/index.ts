@@ -33,7 +33,8 @@ const api: AppAPI = {
     create: (data) => ipcRenderer.invoke('events:create', data),
     listByTournament: (tournamentId) => ipcRenderer.invoke('events:listByTournament', tournamentId),
     update: (id, data) => ipcRenderer.invoke('events:update', id, data),
-    delete: (id) => ipcRenderer.invoke('events:delete', id)
+    delete: (id) => ipcRenderer.invoke('events:delete', id),
+    reorder: (ids) => ipcRenderer.invoke('events:reorder', ids)
   },
 
   tournamentTeams: {

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { GripVertical, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import { api } from '@renderer/lib/api'
@@ -13,30 +14,39 @@ interface Props {
   defaultAgeMax?: number | null
 }
 
+function buildAutoName(cat: EventCategory, type: 'none' | 'under' | 'over', val: string) {
+  const age = val.trim() ? parseInt(val, 10) : NaN
+  if (type === 'under' && !isNaN(age)) return `${cat} U${age}`
+  if (type === 'over' && !isNaN(age)) return `${cat} ${age}+`
+  return cat
+}
+
 export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [events, setEvents] = useState<Event[]>([])
+  const [entryCounts, setEntryCounts] = useState<Record<string, number>>({})
+  const [roundCounts, setRoundCounts] = useState<Record<string, number>>({})
   const [category, setCategory] = useState<EventCategory>('MS')
-  const [name, setName] = useState(t('events.category.MS'))
+  const initAgeType = defaultAgeMin != null ? 'over' : defaultAgeMax != null ? 'under' : 'none' as const
+  const initAgeValue = defaultAgeMin != null ? String(defaultAgeMin) : defaultAgeMax != null ? String(defaultAgeMax + 1) : ''
+  const [name, setName] = useState(() => buildAutoName('MS', initAgeType, initAgeValue))
+  const [nameEdited, setNameEdited] = useState(false)
   const [maxEntries, setMaxEntries] = useState('')
-  const [ageType, setAgeType] = useState<'none' | 'under' | 'over'>(() => {
-    if (defaultAgeMin != null) return 'over'
-    if (defaultAgeMax != null) return 'under'
-    return 'none'
-  })
-  const [ageValue, setAgeValue] = useState(() => {
-    if (defaultAgeMin != null) return String(defaultAgeMin)
-    if (defaultAgeMax != null) return String(defaultAgeMax + 1)
-    return ''
-  })
+  const [ageType, setAgeType] = useState<'none' | 'under' | 'over'>(initAgeType)
+  const [ageValue, setAgeValue] = useState(initAgeValue)
+  const [showForm, setShowForm] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [isAdding, setIsAdding] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
   const editInputRef = useRef<HTMLInputElement>(null)
+  const dragIndexRef = useRef<number | null>(null)
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null)
 
   function handleCategoryChange(cat: EventCategory) {
     setCategory(cat)
-    setName(t(`events.category.${cat}`))
+    if (!nameEdited) setName(buildAutoName(cat, ageType, ageValue))
   }
 
   function startEditing(event: Event) {
@@ -65,6 +75,20 @@ export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props)
     api.events.listByTournament(tournamentId).then(setEvents)
   }, [tournamentId])
 
+  useEffect(() => {
+    if (events.length === 0) return
+    api.tournamentTeams.listByTournament(tournamentId).then((entries) => {
+      const counts: Record<string, number> = {}
+      entries.forEach((e) => { counts[e.event_id] = (counts[e.event_id] ?? 0) + 1 })
+      setEntryCounts(counts)
+    })
+    Promise.all(events.map((e) => api.rounds.listByEvent(e.id))).then((roundsArr) => {
+      const counts: Record<string, number> = {}
+      events.forEach((e, i) => { counts[e.id] = roundsArr[i].length })
+      setRoundCounts(counts)
+    })
+  }, [events, tournamentId])
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
     setIsAdding(true)
@@ -82,34 +106,93 @@ export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props)
         age_max: ageMax
       })
       setEvents((prev) => [...prev, event])
-      setName(t(`events.category.${category}`))
       setMaxEntries('')
-      setAgeType(defaultAgeMin != null ? 'over' : defaultAgeMax != null ? 'under' : 'none')
-      setAgeValue(defaultAgeMin != null ? String(defaultAgeMin) : defaultAgeMax != null ? String(defaultAgeMax + 1) : '')
+      setAgeType(initAgeType)
+      setAgeValue(initAgeValue)
+      setName(buildAutoName(category, initAgeType, initAgeValue))
+      setNameEdited(false)
+      setShowForm(false)
     } finally {
       setIsAdding(false)
     }
   }
 
+  function handleDragStart(index: number) {
+    dragIndexRef.current = index
+  }
+
+  function handleDragOver(e: React.DragEvent, index: number) {
+    e.preventDefault()
+    setDragOverIndex(index)
+  }
+
+  function handleDrop(dropIndex: number) {
+    const fromIndex = dragIndexRef.current
+    if (fromIndex === null || fromIndex === dropIndex) {
+      setDragOverIndex(null)
+      dragIndexRef.current = null
+      return
+    }
+    const reordered = [...events]
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(dropIndex, 0, moved)
+    setEvents(reordered)
+    setDragOverIndex(null)
+    dragIndexRef.current = null
+    api.events.reorder(reordered.map((e) => e.id))
+  }
+
+  function handleDragEnd() {
+    setDragOverIndex(null)
+    dragIndexRef.current = null
+  }
+
   async function handleDelete(id: string) {
-    await api.events.delete(id)
+    const result = await api.events.delete(id)
+    if (result && 'error' in result) {
+      if (result.error === 'EVENT_HAS_ENTRIES') setDeleteError(t('events.deleteErrorEntries'))
+      else if (result.error === 'EVENT_HAS_ROUNDS') setDeleteError(t('events.deleteErrorRounds'))
+      else setDeleteError(t('events.deleteErrorGeneric'))
+      return
+    }
     setEvents((prev) => prev.filter((e) => e.id !== id))
+    setDeleteError(null)
   }
 
   return (
     <div className="mt-8">
-      <h2 className="mb-3 text-sm font-semibold">{t('events.title')}</h2>
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-sm font-semibold">{t('events.title')}</h2>
+        <Button variant="outline" size="sm" onClick={() => setShowForm((v) => !v)}>
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          {t('events.add')}
+        </Button>
+      </div>
+
+      {deleteError && (
+        <p className="mb-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+          {deleteError}
+        </p>
+      )}
 
       {events.length === 0 ? (
         <p className="mb-3 text-sm text-muted-foreground">{t('events.empty')}</p>
       ) : (
         <ul className="mb-3 space-y-1">
-          {events.map((event) => (
+          {events.map((event, index) => (
             <li
               key={event.id}
-              className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
+              draggable
+              onDragStart={() => handleDragStart(index)}
+              onDragOver={(e) => handleDragOver(e, index)}
+              onDrop={() => handleDrop(index)}
+              onDragEnd={handleDragEnd}
+              className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors ${
+                dragOverIndex === index ? 'border-primary bg-primary/5' : ''
+              }`}
             >
               <div className="flex items-center gap-3">
+                <GripVertical className="h-3.5 w-3.5 shrink-0 cursor-grab text-muted-foreground/40 active:cursor-grabbing" />
                 <span className="w-7 shrink-0 font-mono text-xs font-semibold text-muted-foreground">
                   {event.category}
                 </span>
@@ -150,6 +233,20 @@ export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props)
                     max {event.max_entries}
                   </span>
                 )}
+                <button
+                  className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  title={t('events.goToEntries')}
+                  onClick={() => navigate(`/tournaments/${tournamentId}/teams?event=${event.id}`)}
+                >
+                  {entryCounts[event.id] ?? 0} {t('events.entriesCount')}
+                </button>
+                <button
+                  className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  title={t('events.goToRounds')}
+                  onClick={() => navigate(`/tournaments/${tournamentId}/rounds?event=${event.id}`)}
+                >
+                  {roundCounts[event.id] ?? 0} {t('events.roundsCount')}
+                </button>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -164,73 +261,104 @@ export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props)
         </ul>
       )}
 
-      <form onSubmit={handleAdd} className="space-y-2">
-        <div className="flex items-center gap-2">
-          <select
-            value={category}
-            onChange={(e) => handleCategoryChange(e.target.value as EventCategory)}
-            className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-          >
-            {EVENT_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
-              </option>
-            ))}
-          </select>
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t(`events.category.${category}`)}
-            className="max-w-xs"
-          />
-          <Input
-            type="number"
-            min={1}
-            value={maxEntries}
-            onChange={(e) => setMaxEntries(e.target.value)}
-            placeholder={t('events.maxEntriesPlaceholder')}
-            className="w-32"
-          />
-          <Button type="submit" variant="outline" size="sm" disabled={isAdding}>
-            {t('events.add')}
-          </Button>
-        </div>
-        <div className="flex items-center gap-4">
-          <span className="text-xs text-muted-foreground">{t('events.ageRestriction')}:</span>
-          {(['none', 'under', 'over'] as const).map((type) => (
-            <label key={type} className="flex cursor-pointer items-center gap-1.5 text-xs">
-              <input
-                type="radio"
-                name="ageType"
-                value={type}
-                checked={ageType === type}
-                onChange={() => {
-                  setAgeType(type)
-                  setAgeValue('')
-                }}
-                className="accent-primary"
-              />
-              {type === 'none' && t('events.ageNone')}
-              {type === 'under' && 'U…'}
-              {type === 'over' && '…+'}
-            </label>
-          ))}
-          {ageType !== 'none' && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              {ageType === 'under' && <span className="font-mono font-semibold">U</span>}
-              <Input
-                type="number"
-                min={1}
-                value={ageValue}
-                onChange={(e) => setAgeValue(e.target.value)}
-                placeholder={ageType === 'under' ? '19' : '45'}
-                className="h-7 w-16 text-xs"
-              />
-              {ageType === 'over' && <span className="font-mono font-semibold">+</span>}
+      {showForm && (
+        <div className="rounded-md border p-3">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-medium">{t('events.newCategory')}</span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6"
+              onClick={() => setShowForm(false)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <form onSubmit={handleAdd} className="space-y-3">
+            <div className="flex items-end gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">{t('events.fieldCategory')}</label>
+                <select
+                  value={category}
+                  onChange={(e) => handleCategoryChange(e.target.value as EventCategory)}
+                  className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                >
+                  {EVENT_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">{t('events.fieldName')}</label>
+                <Input
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value)
+                    setNameEdited(true)
+                  }}
+                  placeholder={category}
+                  className="max-w-xs"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-muted-foreground">{t('events.fieldMaxEntries')}</label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={maxEntries}
+                  onChange={(e) => setMaxEntries(e.target.value)}
+                  placeholder={t('events.maxEntriesPlaceholder')}
+                  className="w-32"
+                />
+              </div>
+              <Button type="submit" variant="default" size="sm" disabled={isAdding}>
+                {t('common.save')}
+              </Button>
             </div>
-          )}
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-muted-foreground">{t('events.ageRestriction')}:</span>
+              {(['none', 'under', 'over'] as const).map((type) => (
+                <label key={type} className="flex cursor-pointer items-center gap-1.5 text-xs">
+                  <input
+                    type="radio"
+                    name="ageType"
+                    value={type}
+                    checked={ageType === type}
+                    onChange={() => {
+                      setAgeType(type)
+                      setAgeValue('')
+                      if (!nameEdited) setName(buildAutoName(category, type, ''))
+                    }}
+                    className="accent-primary"
+                  />
+                  {type === 'none' && t('events.ageNone')}
+                  {type === 'under' && 'U…'}
+                  {type === 'over' && '…+'}
+                </label>
+              ))}
+              {ageType !== 'none' && (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  {ageType === 'under' && <span className="font-mono font-semibold">U</span>}
+                  <Input
+                    type="number"
+                    min={1}
+                    value={ageValue}
+                    onChange={(e) => {
+                      setAgeValue(e.target.value)
+                      if (!nameEdited) setName(buildAutoName(category, ageType, e.target.value))
+                    }}
+                    placeholder={ageType === 'under' ? '19' : '45'}
+                    className="h-7 w-16 text-xs"
+                  />
+                  {ageType === 'over' && <span className="font-mono font-semibold">+</span>}
+                </div>
+              )}
+            </div>
+          </form>
         </div>
-      </form>
+      )}
     </div>
   )
 }

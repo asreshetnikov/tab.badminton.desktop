@@ -18,6 +18,7 @@ export interface Event {
   max_entries: number | null
   age_min: number | null
   age_max: number | null
+  order: number
 }
 
 export interface CreateEventDTO {

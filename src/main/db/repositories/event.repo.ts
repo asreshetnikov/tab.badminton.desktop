@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, count, max, asc } from 'drizzle-orm'
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { randomUUID } from 'crypto'
 import * as schema from '../schema'
@@ -9,6 +9,11 @@ export class EventRepository {
 
   create(data: CreateEventDTO): Event {
     const id = randomUUID()
+    const maxOrder = this.db
+      .select({ v: max(schema.events.order) })
+      .from(schema.events)
+      .where(eq(schema.events.tournament_id, data.tournament_id))
+      .get()?.v ?? -1
     this.db
       .insert(schema.events)
       .values({
@@ -16,7 +21,10 @@ export class EventRepository {
         tournament_id: data.tournament_id,
         name: data.name,
         category: data.category,
-        max_entries: data.max_entries ?? null
+        max_entries: data.max_entries ?? null,
+        age_min: data.age_min ?? null,
+        age_max: data.age_max ?? null,
+        order: maxOrder + 1
       })
       .run()
     return this.getByIdOrThrow(id)
@@ -31,7 +39,18 @@ export class EventRepository {
       .select()
       .from(schema.events)
       .where(eq(schema.events.tournament_id, tournamentId))
+      .orderBy(asc(schema.events.order))
       .all()
+  }
+
+  reorder(ids: string[]): void {
+    ids.forEach((id, index) => {
+      this.db
+        .update(schema.events)
+        .set({ order: index })
+        .where(eq(schema.events.id, id))
+        .run()
+    })
   }
 
   update(id: string, data: UpdateEventDTO): Event {
@@ -40,6 +59,20 @@ export class EventRepository {
   }
 
   delete(id: string): void {
+    const teamsCount = this.db
+      .select({ n: count() })
+      .from(schema.tournament_teams)
+      .where(eq(schema.tournament_teams.event_id, id))
+      .get()!.n
+    if (teamsCount > 0) throw new Error('EVENT_HAS_ENTRIES')
+
+    const roundsCount = this.db
+      .select({ n: count() })
+      .from(schema.rounds)
+      .where(eq(schema.rounds.event_id, id))
+      .get()!.n
+    if (roundsCount > 0) throw new Error('EVENT_HAS_ROUNDS')
+
     this.db.delete(schema.events).where(eq(schema.events.id, id)).run()
   }
 

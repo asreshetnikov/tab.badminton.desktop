@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { ChevronLeft, Plus, Trash2, ChevronRight } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
@@ -73,6 +73,7 @@ function AddRoundForm({
 export function TournamentRounds() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { t } = useTranslation()
 
   const [tournament, setTournament] = useState<Tournament | undefined>()
@@ -89,7 +90,11 @@ export function TournamentRounds() {
       async ([tournament, events]) => {
         setTournament(tournament)
         setEvents(events)
-        setActiveEventId(events[0]?.id ?? null)
+        const requestedEvent = searchParams.get('event')
+        const initialEvent = requestedEvent && events.some((e) => e.id === requestedEvent)
+          ? requestedEvent
+          : events[0]?.id ?? null
+        setActiveEventId(initialEvent)
         const entries = await Promise.all(
           events.map((e) => api.rounds.listByEvent(e.id).then((rounds) => [e.id, rounds] as const))
         )

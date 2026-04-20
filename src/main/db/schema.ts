@@ -43,7 +43,8 @@ export const events = sqliteTable('events', {
   category: text('category', { enum: ['MS', 'WS', 'MD', 'WD', 'XD'] }).notNull(),
   max_entries: integer('max_entries'),
   age_min: integer('age_min'),
-  age_max: integer('age_max')
+  age_max: integer('age_max'),
+  order: integer('order').notNull().default(0)
 })
 
 export const tournament_players = sqliteTable('tournament_players', {
