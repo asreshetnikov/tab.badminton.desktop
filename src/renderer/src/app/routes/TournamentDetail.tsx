@@ -21,6 +21,13 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
 import type { Tournament, Venue, CreateTournamentDTO } from '@shared/types/ipc'
 
+interface TabCounts {
+  players: number
+  entries: number
+  rounds: number
+  matches: number
+}
+
 export function TournamentDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -31,9 +38,29 @@ export function TournamentDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [counts, setCounts] = useState<TabCounts | null>(null)
 
   useEffect(() => {
     if (id) api.tournament.getById(id).then(setTournament)
+  }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    Promise.all([
+      api.tournamentPlayers.listByTournament(id),
+      api.tournamentTeams.listByTournament(id),
+      api.events.listByTournament(id),
+      api.schedule.listScheduled(id),
+      api.schedule.listUnscheduled(id),
+    ]).then(async ([players, entries, events, scheduled, unscheduled]) => {
+      const roundsArr = await Promise.all(events.map((e) => api.rounds.listByEvent(e.id)))
+      setCounts({
+        players: players.length,
+        entries: entries.length,
+        rounds: roundsArr.flat().length,
+        matches: scheduled.length + unscheduled.length,
+      })
+    })
   }, [id])
 
   useEffect(() => {
@@ -128,18 +155,30 @@ export function TournamentDetail() {
         <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/players`)}>
           <Users className="mr-1.5 h-3.5 w-3.5" />
           {t('registrations.title')}
+          {counts != null && (
+            <span className="ml-1.5 text-xs text-muted-foreground">{counts.players}</span>
+          )}
         </Button>
         <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/teams`)}>
           <Shield className="mr-1.5 h-3.5 w-3.5" />
           {t('tournamentTeams.title')}
+          {counts != null && (
+            <span className="ml-1.5 text-xs text-muted-foreground">{counts.entries}</span>
+          )}
         </Button>
         <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/rounds`)}>
           <ListTree className="mr-1.5 h-3.5 w-3.5" />
           {t('rounds.title')}
+          {counts != null && (
+            <span className="ml-1.5 text-xs text-muted-foreground">{counts.rounds}</span>
+          )}
         </Button>
         <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/schedule`)}>
           <CalendarClock className="mr-1.5 h-3.5 w-3.5" />
           {t('schedule.title')}
+          {counts != null && (
+            <span className="ml-1.5 text-xs text-muted-foreground">{counts.matches}</span>
+          )}
         </Button>
       </div>
 

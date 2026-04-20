@@ -244,6 +244,7 @@ export function Players() {
             </button>
           ))}
         </div>
+        <span className="text-sm text-muted-foreground">{displayPlayers.length} players</span>
       </div>
 
       {players.length === 0 && !adding ? (

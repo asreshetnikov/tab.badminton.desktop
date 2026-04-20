@@ -2,7 +2,7 @@
   "nav": {
     "dashboard": "Dashboard",
     "players": "Players",
-    "teams": "Teams",
+    "teams": "Doubles",
     "settings": "Settings"
   },
   "dashboard": {
@@ -62,15 +62,15 @@
     "dateRange": "End date must be after or equal to start date"
   },
   "tournamentTeams": {
-    "title": "Tournament Teams",
-    "add": "Add Teams",
-    "addDialogTitle": "Add Teams",
+    "title": "Entries",
+    "add": "Add Entry",
+    "addDialogTitle": "Add Entry",
     "search": "Search by name, category or player...",
     "selectAll": "Select all",
     "addSelected": "Add {{count}} team(s)",
     "empty": {
-      "title": "No teams added",
-      "description": "Select teams from the global registry to participate in this tournament."
+      "title": "No entries added",
+      "description": "Select entry from the global registry to participate in this tournament."
     },
     "players": "Players",
     "remove": "Remove",
@@ -82,7 +82,7 @@
     "createPair": "Create & register",
     "noEvents": "No events defined",
     "noEventsHint": "Create event categories in the tournament settings first.",
-    "noEligibleTeams": "No eligible teams. Create teams matching this event's category first."
+    "noEligibleTeams": "No eligible entries. Create entry matching this event's category first."
   },
   "registrations": {
     "title": "Player Registrations",
@@ -107,11 +107,11 @@
     "remove": "Remove"
   },
   "teams": {
-    "title": "Teams",
-    "newTeam": "New Team",
+    "title": "Doubles",
+    "newTeam": "New Pair",
     "empty": {
-      "title": "No teams yet",
-      "description": "Create teams from registered players."
+      "title": "No pairs yet",
+      "description": "Create pair from registered players."
     },
     "category": "Category",
     "allCategories": "All",
@@ -185,11 +185,11 @@
     },
     "noEvents": "No events defined",
     "noEventsHint": "Create event categories in the tournament settings first.",
-    "noTeams": "No teams assigned to this round yet.",
-    "addTeams": "Add Teams",
-    "addTeamsTitle": "Add Teams to {{round}}",
+    "noTeams": "No doubles assigned to this round yet.",
+    "addTeams": "Add Pair",
+    "addTeamsTitle": "Add Pair to {{round}}",
     "addSelected": "Add {{count}} team(s)",
-    "noEligibleTeams": "All registered teams are already in this round.",
+    "noEligibleTeams": "All registered doubles are already in this round.",
     "participants": "Participants",
     "matches": "Matches",
     "noMatches": "No matches generated yet.",
@@ -214,7 +214,7 @@
   "groups": {
     "matches": "Matches",
     "standings": "Standings",
-    "noStandings": "No teams in this round yet.",
+    "noStandings": "No entries in this round yet.",
     "col": {
       "team": "Team",
       "P": "P",

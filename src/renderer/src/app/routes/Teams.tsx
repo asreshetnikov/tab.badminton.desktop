@@ -3,7 +3,6 @@ import { Plus, Trash2 } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { api } from '@renderer/lib/api'
 import { useTranslation } from 'react-i18next'
-import { EVENT_CATEGORIES } from '@shared/types/event'
 import { cn } from '@renderer/lib/utils'
 import { statusClass } from '@renderer/features/tournament/status'
 import type { TeamWithPlayers, EventCategory, Player } from '@shared/types/ipc'
@@ -79,7 +78,7 @@ export function Teams() {
   }, [player1Id, player2Id, category, players])
 
   const displayTeams = useMemo(() => {
-    let result = teams
+    let result = teams.filter((team) => DOUBLES.includes(team.category))
     if (catFilter) result = result.filter((team) => team.category === catFilter)
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -94,7 +93,7 @@ export function Teams() {
 
   function startAdding() {
     setAdding(true)
-    setCategory('MS')
+    setCategory(catFilter ?? 'MD')
     setPlayer1Id('')
     setPlayer2Id('')
     setName('')
@@ -135,8 +134,14 @@ export function Teams() {
     return <div className="p-6 text-sm text-muted-foreground">{t('dashboard.loading')}</div>
   }
 
-  const playerOptions = (exclude?: string) =>
-    players.filter((p) => p.id !== exclude)
+  // MD → both M; WD → both F; XD → player1 M, player2 F
+  const genderFor = (slot: 1 | 2): 'M' | 'F' | null =>
+    category === 'MD' ? 'M' : category === 'WD' ? 'F' : slot === 1 ? 'M' : 'F'
+
+  const playerOptions = (slot: 1 | 2, exclude?: string) => {
+    const gender = genderFor(slot)
+    return players.filter((p) => p.id !== exclude && (gender == null || p.gender === gender))
+  }
 
   return (
     <div className="p-6">
@@ -163,7 +168,7 @@ export function Teams() {
                 onChange={(e) => { setCategory(e.target.value as EventCategory); setPlayer1Id(''); setPlayer2Id('') }}
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
-                {EVENT_CATEGORIES.map((cat) => (
+                {DOUBLES.map((cat) => (
                   <option key={cat} value={cat}>
                     {cat} — {t(`events.category.${cat}`)}
                   </option>
@@ -182,7 +187,7 @@ export function Teams() {
                   className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                 >
                   <option value="">{t('teams.selectPlayer')}</option>
-                  {playerOptions(player2Id).map((p) => (
+                  {playerOptions(1, player2Id).map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.last_name} {p.first_name}{p.club ? ` (${p.club})` : ''}
                     </option>
@@ -199,7 +204,7 @@ export function Teams() {
                     className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
                   >
                     <option value="">{t('teams.selectPlayer')}</option>
-                    {playerOptions(player1Id).map((p) => (
+                    {playerOptions(2, player1Id).map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.last_name} {p.first_name}{p.club ? ` (${p.club})` : ''}
                       </option>
@@ -242,7 +247,7 @@ export function Teams() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('teams.searchPlaceholder')}
-            className="h-9 max-w-xs rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            className="h-9 w-full max-w-sm rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
           />
           <div className="flex gap-1">
             <button
@@ -252,7 +257,7 @@ export function Teams() {
             >
               {t('teams.allCategories')}
             </button>
-            {EVENT_CATEGORIES.map((cat) => (
+            {DOUBLES.map((cat) => (
               <button
                 key={cat}
                 type="button"
@@ -263,6 +268,7 @@ export function Teams() {
               </button>
             ))}
           </div>
+          <span className="text-sm text-muted-foreground">{displayTeams.length} doubles</span>
         </div>
       )}
 
