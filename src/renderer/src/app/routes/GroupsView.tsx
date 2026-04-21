@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2, Swords, RefreshCw, Pencil, Check, X, Network } from 'lucide-react'
+import { ChevronLeft, Plus, Swords, RefreshCw, Pencil, Check, X, List, Network } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -25,6 +25,102 @@ import type {
 } from '@shared/types/ipc'
 import type { MatchStatus } from '@shared/types/match'
 
+// ─── Bracket layout ───────────────────────────────────────────────────────────
+const MATCH_W = 180
+const MATCH_H = 64
+const H_GAP = 60
+const V_GAP = 24
+const SVG_PAD = 20
+const LABEL_H = 28
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TFn = (key: string, opts?: any) => string
+
+function computeLayout(matches: MatchWithTeams[], t: TFn) {
+  const empty = { nodes: [] as { match: MatchWithTeams; x: number; y: number }[], connectors: [] as string[], levelLabels: [] as { label: string; x: number }[], width: 0, height: 0 }
+  if (!matches.length) return empty
+  const byId = new Map(matches.map((m) => [m.id, m]))
+  const levelsRev: MatchWithTeams[][] = []
+  let cur = matches.filter((m) => !m.win_match_id)
+  while (cur.length > 0) {
+    levelsRev.push(cur)
+    const next: MatchWithTeams[] = []
+    for (const m of cur) {
+      if (m.left_match_id) { const c = byId.get(m.left_match_id); if (c) next.push(c) }
+      if (m.right_match_id) { const c = byId.get(m.right_match_id); if (c) next.push(c) }
+    }
+    cur = next
+  }
+  const levels = levelsRev.reverse()
+  const numRounds = levels.length
+  const matchY = new Map<string, number>()
+  const yStart = SVG_PAD + LABEL_H
+  levels[0].forEach((m, i) => matchY.set(m.id, yStart + i * (MATCH_H + V_GAP)))
+  for (let l = 1; l < numRounds; l++) {
+    for (const m of levels[l]) {
+      const lcy = m.left_match_id != null ? (matchY.get(m.left_match_id)! + MATCH_H / 2) : null
+      const rcy = m.right_match_id != null ? (matchY.get(m.right_match_id)! + MATCH_H / 2) : null
+      const y = lcy != null && rcy != null ? (lcy + rcy) / 2 - MATCH_H / 2 : (lcy ?? rcy ?? yStart)
+      matchY.set(m.id, y)
+    }
+  }
+  const matchX = new Map<string, number>()
+  levels.forEach((level, l) => { const x = SVG_PAD + l * (MATCH_W + H_GAP); level.forEach((m) => matchX.set(m.id, x)) })
+  const nodes = matches.map((m) => ({ match: m, x: matchX.get(m.id) ?? 0, y: matchY.get(m.id) ?? 0 }))
+  const connectors: string[] = []
+  for (let l = 1; l < numRounds; l++) {
+    for (const m of levels[l]) {
+      const px = matchX.get(m.id)!
+      const pcy = matchY.get(m.id)! + MATCH_H / 2
+      const xMid = px - H_GAP / 2
+      const childRX = px - H_GAP
+      const lcy = m.left_match_id != null ? matchY.get(m.left_match_id)! + MATCH_H / 2 : null
+      const rcy = m.right_match_id != null ? matchY.get(m.right_match_id)! + MATCH_H / 2 : null
+      if (lcy != null && rcy != null) {
+        connectors.push(`M ${childRX} ${lcy} H ${xMid}`, `M ${childRX} ${rcy} H ${xMid}`, `M ${xMid} ${lcy} V ${rcy}`, `M ${xMid} ${pcy} H ${px}`)
+      } else {
+        const childCY = lcy ?? rcy
+        if (childCY != null) connectors.push(`M ${childRX} ${childCY} H ${px}`)
+      }
+    }
+  }
+  const total = numRounds
+  const levelLabels = levels.map((_, idx) => {
+    const fromEnd = total - 1 - idx
+    const label = fromEnd === 0 ? t('playoffs.final') : fromEnd === 1 ? t('playoffs.semifinals') : fromEnd === 2 ? t('playoffs.quarterfinals') : t('playoffs.round', { n: idx + 1 })
+    return { label, x: SVG_PAD + idx * (MATCH_W + H_GAP) }
+  })
+  const firstCount = levels[0].length
+  return {
+    nodes, connectors, levelLabels,
+    width: SVG_PAD * 2 + numRounds * MATCH_W + (numRounds - 1) * H_GAP,
+    height: SVG_PAD + LABEL_H + firstCount * MATCH_H + (firstCount - 1) * V_GAP + SVG_PAD
+  }
+}
+
+function BracketMatchCard({ match, onClick }: { match: MatchWithTeams; onClick: () => void }) {
+  const done = match.status === 'finished' || match.status === 'walkover' || match.status === 'retired'
+  const team1Wins = done && match.winner_team_id === match.team1_id && match.team1_id != null
+  const team2Wins = done && match.winner_team_id === match.team2_id && match.team2_id != null
+  return (
+    <div
+      className="flex h-full w-full cursor-pointer select-none flex-col overflow-hidden rounded border border-border bg-card text-card-foreground hover:border-primary/60 hover:bg-muted/30"
+      style={{ fontSize: 11 }}
+      onClick={onClick}
+    >
+      <div className={cn('flex flex-1 items-center gap-1 px-2', team1Wins && 'bg-green-50 dark:bg-green-950/20')}>
+        <span className={cn('min-w-0 flex-1 truncate', team1Wins ? 'font-semibold' : 'text-muted-foreground', !match.team1 && 'italic opacity-50')}>{match.team1?.name ?? '—'}</span>
+        {done && <span className={cn('shrink-0 font-mono', team1Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s1 ?? 0}</span>}
+      </div>
+      <div className="border-t border-border" />
+      <div className={cn('flex flex-1 items-center gap-1 px-2', team2Wins && 'bg-green-50 dark:bg-green-950/20')}>
+        <span className={cn('min-w-0 flex-1 truncate', team2Wins ? 'font-semibold' : 'text-muted-foreground', !match.team2 && 'italic opacity-50')}>{match.team2?.name ?? '—'}</span>
+        {done && <span className={cn('shrink-0 font-mono', team2Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s2 ?? 0}</span>}
+      </div>
+    </div>
+  )
+}
+
 export function GroupsView() {
   const { id, eid, rid } = useParams<{ id: string; eid: string; rid: string }>()
   const navigate = useNavigate()
@@ -48,6 +144,9 @@ export function GroupsView() {
   const [addTeamsOpen, setAddTeamsOpen] = useState(false)
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set())
   const [isAddingTeams, setIsAddingTeams] = useState(false)
+
+  // View mode (list | bracket) — bracket only for playoff
+  const [viewMode, setViewMode] = useState<'list' | 'bracket'>('list')
 
   // Generate matches
   const [isGenerating, setIsGenerating] = useState(false)
@@ -143,15 +242,6 @@ export function GroupsView() {
     }
   }
 
-  async function handleRemoveTeam(rt: RoundTeamWithTeam) {
-    await api.roundTeams.remove(rt.id)
-    setRoundTeams((prev) => prev.filter((r) => r.id !== rt.id))
-    if (rid) {
-      const updatedStandings = await api.roundTeams.listTableByRound(rid)
-      setStandings(sortStandings(updatedStandings))
-    }
-  }
-
   // ─── Matches ───────────────────────────────────────────────────────────────
 
   async function handleGenerate() {
@@ -243,8 +333,14 @@ export function GroupsView() {
         resultMatch.id,
         dto
       )
-      setMatches((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
-      setStandings(sortStandings(updatedStandings))
+      if (round?.type === 'playoff') {
+        // Reload all matches so winner propagation into next round is reflected
+        const allMatches = await api.matches.listByRound(rid!)
+        setMatches(allMatches)
+      } else {
+        setMatches((prev) => prev.map((m) => (m.id === updated.id ? updated : m)))
+        setStandings(sortStandings(updatedStandings))
+      }
       closeResultDialog()
     } finally {
       setIsSavingResult(false)
@@ -300,8 +396,6 @@ export function GroupsView() {
   // Group playoff matches by bracket level (first round → final)
   const playoffGroups = getPlayoffGroups(matches, t)
 
-  const sortedTeams = roundTeams.slice().sort((a, b) => a.team.name.localeCompare(b.team.name))
-
   return (
     <div className="p-6">
       {/* Header */}
@@ -356,117 +450,91 @@ export function GroupsView() {
             </div>
           )}
         </div>
-        {!isRoundRobin && matches.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-1 shrink-0"
-            onClick={() => navigate(`/tournaments/${id}/events/${eid}/rounds/${rid}/playoff`)}
-          >
-            <Network className="mr-1.5 h-3.5 w-3.5" />
-            {t('playoffs.viewBracket')}
-          </Button>
-        )}
+        <div className="mt-1 flex shrink-0 items-center gap-2">
+          {/* Generate / Regenerate */}
+          {isRoundRobin ? (
+            matches.length === 0 ? (
+              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={roundTeams.length < 2 || isGenerating} onClick={handleGenerate}>
+                <Swords className="mr-1 h-3 w-3" />
+                {t('rounds.generate')}
+              </Button>
+            ) : (
+              <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" disabled={isGenerating} onClick={() => setRegenConfirmOpen(true)}>
+                <RefreshCw className="mr-1 h-3 w-3" />
+                {t('rounds.regenerate')}
+              </Button>
+            )
+          ) : (
+            matches.length === 0 ? (
+              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={roundTeams.length < 2 || isGeneratingBracket} onClick={handleGenerateBracket}>
+                <Swords className="mr-1 h-3 w-3" />
+                {t('rounds.generateBracket')}
+              </Button>
+            ) : (
+              <Button size="sm" variant="ghost" className="h-7 text-xs text-muted-foreground" disabled={isGeneratingBracket} onClick={() => setRegenBracketConfirmOpen(true)}>
+                <RefreshCw className="mr-1 h-3 w-3" />
+                {t('rounds.regenerate')}
+              </Button>
+            )
+          )}
+
+          {/* List / Bracket toggle (playoff only) */}
+          {!isRoundRobin && matches.length > 0 && (
+            <div className="flex overflow-hidden rounded-md border">
+              <button
+                onClick={() => setViewMode('list')}
+                className={cn('flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-colors',
+                  viewMode === 'list' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              >
+                <List className="h-3.5 w-3.5" />
+                List
+              </button>
+              <button
+                onClick={() => setViewMode('bracket')}
+                className={cn('flex items-center gap-1.5 border-l px-3 py-1.5 text-xs font-medium transition-colors',
+                  viewMode === 'bracket' ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground')}
+              >
+                <Network className="h-3.5 w-3.5" />
+                Bracket
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[1fr_auto]">
+      {/* Bracket view */}
+      {!isRoundRobin && viewMode === 'bracket' && (() => {
+        const layout = computeLayout(matches, t)
+        return matches.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{t('playoffs.noMatches')}</p>
+        ) : (
+          <div className="overflow-auto">
+            <svg width={layout.width} height={layout.height} className="block" style={{ fontFamily: 'inherit' }}>
+              {layout.levelLabels.map(({ label, x }) => (
+                <text key={label} x={x + MATCH_W / 2} y={SVG_PAD + LABEL_H / 2} textAnchor="middle" dominantBaseline="middle"
+                  className="fill-muted-foreground" style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  {label.toUpperCase()}
+                </text>
+              ))}
+              {layout.connectors.map((d, i) => (
+                <path key={i} d={d} fill="none" className="stroke-border" strokeWidth={1.5} />
+              ))}
+              {layout.nodes.map(({ match, x, y }) => (
+                <foreignObject key={match.id} x={x} y={y} width={MATCH_W} height={MATCH_H}>
+                  <BracketMatchCard match={match} onClick={() => openResultDialog(match)} />
+                </foreignObject>
+              ))}
+            </svg>
+          </div>
+        )
+      })()}
+
+      <div className={cn('grid gap-8 lg:grid-cols-[1fr_auto]', !isRoundRobin && viewMode === 'bracket' && 'hidden')}>
         {/* Left column: Participants + Matches */}
         <div className="space-y-8">
 
-          {/* Participants */}
-          <section>
-            <div className="mb-3 flex items-center gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('rounds.participants')}
-              </h2>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={() => { setSelectedTeamIds(new Set()); setAddTeamsOpen(true) }}
-              >
-                <Plus className="mr-1 h-3 w-3" />
-                {t('rounds.addTeams')}
-              </Button>
-            </div>
-            {sortedTeams.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t('rounds.noTeams')}</p>
-            ) : (
-              <ul className="space-y-1">
-                {sortedTeams.map((rt, idx) => (
-                  <li key={rt.id} className="group/rt flex items-center gap-2 text-sm">
-                    <span className="w-5 text-right text-xs text-muted-foreground">{idx + 1}.</span>
-                    <span className="flex-1">{rt.team.name}</span>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-6 w-6 opacity-0 hover:text-destructive group-hover/rt:opacity-100"
-                      onClick={() => handleRemoveTeam(rt)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
           {/* Matches */}
           <section>
-            <div className="mb-3 flex items-center gap-3">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('groups.matches')}
-              </h2>
-              {isRoundRobin ? (
-                matches.length === 0 ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    disabled={roundTeams.length < 2 || isGenerating}
-                    onClick={handleGenerate}
-                  >
-                    <Swords className="mr-1 h-3 w-3" />
-                    {t('rounds.generate')}
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs text-muted-foreground"
-                    disabled={isGenerating}
-                    onClick={() => setRegenConfirmOpen(true)}
-                  >
-                    <RefreshCw className="mr-1 h-3 w-3" />
-                    {t('rounds.regenerate')}
-                  </Button>
-                )
-              ) : (
-                matches.length === 0 ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    disabled={roundTeams.length < 2 || isGeneratingBracket}
-                    onClick={handleGenerateBracket}
-                  >
-                    <Swords className="mr-1 h-3 w-3" />
-                    {t('rounds.generateBracket')}
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-7 text-xs text-muted-foreground"
-                    disabled={isGeneratingBracket}
-                    onClick={() => setRegenBracketConfirmOpen(true)}
-                  >
-                    <RefreshCw className="mr-1 h-3 w-3" />
-                    {t('rounds.regenerate')}
-                  </Button>
-                )
-              )}
-            </div>
             {matches.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('rounds.noMatches')}</p>
             ) : isRoundRobin ? (

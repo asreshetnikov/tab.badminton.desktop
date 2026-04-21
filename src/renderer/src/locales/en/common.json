@@ -214,7 +214,8 @@
     "regenerateDescription": "This will delete all existing matches for this round and generate new ones. Any results entered will be lost.",
     "regenerateBracketTitle": "Regenerate bracket?",
     "regenerateBracketDescription": "This will delete all existing bracket matches and regenerate them. Any results entered will be lost.",
-    "viewGroups": "View Groups"
+    "viewGroups": "View Groups",
+    "matches": "Matches"
   },
   "playoffs": {
     "final": "Final",
@@ -275,7 +276,9 @@
     "create": "Create",
     "confirm": "Confirm",
     "close": "Close",
-    "back": "Back"
+    "back": "Back",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all"
   },
   "schedule": {
     "title": "Schedule",
