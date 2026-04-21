@@ -247,14 +247,16 @@ export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props)
                 >
                   {roundCounts[event.id] ?? 0} {t('events.roundsCount')}
                 </button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                  onClick={() => handleDelete(event.id)}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </Button>
+                {!entryCounts[event.id] && !roundCounts[event.id] && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => handleDelete(event.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             </li>
           ))}

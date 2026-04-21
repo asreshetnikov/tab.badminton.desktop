@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { ChevronLeft, ShieldPlus, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ShieldPlus, Users } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -230,6 +230,39 @@ export function TournamentTeams() {
     return ids
   }, [activeEntries])
 
+  const tabsScrollRef = useRef<HTMLDivElement>(null)
+  const [canScrollLeft, setCanScrollLeft] = useState(false)
+  const [canScrollRight, setCanScrollRight] = useState(false)
+
+  useEffect(() => {
+    updateScrollButtons()
+    const el = tabsScrollRef.current
+    if (!el) return
+    const ro = new ResizeObserver(updateScrollButtons)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [tournamentEvents])
+
+  useEffect(() => {
+    const el = tabsScrollRef.current
+    if (!el || !activeEventId) return
+    const activeBtn = el.querySelector<HTMLElement>('[data-event-id="' + activeEventId + '"]')
+    activeBtn?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [activeEventId])
+
+  function updateScrollButtons() {
+    const el = tabsScrollRef.current
+    if (!el) return
+    setCanScrollLeft(el.scrollLeft > 0)
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+  }
+
+  function scrollTabs(dir: 'left' | 'right') {
+    const el = tabsScrollRef.current
+    if (!el) return
+    el.scrollBy({ left: dir === 'left' ? -200 : 200, behavior: 'smooth' })
+  }
+
   if (isLoading) {
     return <div className="p-6 text-sm text-muted-foreground">{t('dashboard.loading')}</div>
   }
@@ -247,7 +280,7 @@ export function TournamentTeams() {
         </div>
         <div className="ml-auto flex items-center gap-3">
           {activeEntries.length > 0 && (
-            <span className="text-sm text-muted-foreground">{activeEntries.length} teams</span>
+            <span className="text-sm text-muted-foreground">{t('tournamentTeams.entriesCount', { count: activeEntries.length })}</span>
           )}
           {activeEvent && doublesGenders && (
             <Button variant="outline" onClick={openPairDialog}>
@@ -273,33 +306,53 @@ export function TournamentTeams() {
       ) : (
         <>
           {/* Event tabs */}
-          <div className="mb-6 flex gap-1 border-b">
-            {tournamentEvents.map((event) => {
-              const count = entries.filter((e) => e.event_id === event.id).length
-              return (
-                <button
-                  key={event.id}
-                  onClick={() => setActiveEventId(event.id)}
-                  className={cn(
-                    'flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition-colors',
-                    event.id === activeEventId
-                      ? 'border-primary text-foreground'
-                      : 'border-transparent text-muted-foreground hover:text-foreground'
-                  )}
-                >
-                  <span className={cn('rounded-full px-1.5 py-0.5 text-xs font-semibold',
-                    statusClass[event.category] ?? 'bg-muted text-muted-foreground')}>
-                    {event.category}
-                  </span>
-                  {event.name}
-                  {count > 0 && (
-                    <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                      {count}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
+          <div className="relative mb-6 flex items-end border-b">
+            {canScrollLeft && (
+              <button
+                onClick={() => scrollTabs('left')}
+                className="absolute left-0 z-10 flex h-full items-center bg-gradient-to-r from-background via-background/90 to-transparent pr-4 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
+            <div
+              ref={tabsScrollRef}
+              onScroll={updateScrollButtons}
+              className="flex gap-1 overflow-x-auto scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style={{ maskImage: canScrollRight ? 'linear-gradient(to right, black 85%, transparent 100%)' : undefined }}
+            >
+              {tournamentEvents.map((event) => {
+                const count = entries.filter((e) => e.event_id === event.id).length
+                return (
+                  <button
+                    key={event.id}
+                    data-event-id={event.id}
+                    onClick={() => setActiveEventId(event.id)}
+                    className={cn(
+                      'flex shrink-0 items-center gap-1.5 rounded-t-md px-4 py-2 text-sm transition-colors',
+                      event.id === activeEventId
+                        ? 'bg-muted font-semibold text-foreground'
+                        : 'font-medium text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    )}
+                  >
+                    {event.name}
+                    {count > 0 && (
+                      <span className="ml-1 rounded-full bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {canScrollRight && (
+              <button
+                onClick={() => scrollTabs('right')}
+                className="absolute right-0 z-10 flex h-full items-center bg-gradient-to-l from-background via-background/90 to-transparent pl-4 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
           </div>
 
           {/* Teams for active event */}
@@ -388,13 +441,13 @@ export function TournamentTeams() {
                 className="h-4 w-4 rounded border-input accent-primary"
               />
               <span className="text-sm font-medium">{t('tournamentTeams.selectAll')}</span>
-              <span className="ml-auto text-xs text-muted-foreground">{filteredTeams.length} teams</span>
+              <span className="ml-auto text-xs text-muted-foreground">{t('tournamentTeams.entriesCount', { count: filteredTeams.length })}</span>
             </label>
           )}
 
           <div className="max-h-72 overflow-y-auto rounded-md border">
             {filteredTeams.length === 0 ? (
-              <p className="p-4 text-center text-sm text-muted-foreground">No teams found.</p>
+              <p className="p-4 text-center text-sm text-muted-foreground">{t('tournamentTeams.noEntriesFound')}</p>
             ) : (
               <ul>
                 {filteredTeams.map((team) => (

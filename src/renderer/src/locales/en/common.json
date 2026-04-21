@@ -67,7 +67,9 @@
     "addDialogTitle": "Add Entry",
     "search": "Search by name, category or player...",
     "selectAll": "Select all",
-    "addSelected": "Add {{count}} team(s)",
+    "addSelected": "Add {{count}} entry(ies)",
+    "entriesCount": "{{count}} entries",
+    "noEntriesFound": "No entries found.",
     "empty": {
       "title": "No entries added",
       "description": "Select entry from the global registry to participate in this tournament."
