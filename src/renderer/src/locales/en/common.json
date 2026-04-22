@@ -269,6 +269,17 @@
     "save": "Save Result",
     "setScore": "{{s1}} – {{s2}}"
   },
+  "playerDetail": {
+    "entries": "Entries",
+    "noEligibleEvents": "No eligible event categories in this tournament.",
+    "with": "with",
+    "register": "Register",
+    "existingPairs": "Existing pairs",
+    "newPair": "Create new pair",
+    "selectPartner": "Select partner...",
+    "createAndRegister": "Create & Register",
+    "noPartners": "No eligible partners available."
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
