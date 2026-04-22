@@ -38,12 +38,13 @@ function AddRoundForm({
 }: {
   order: number
   isSaving: boolean
-  onSave: (name: string, type: RoundType) => void
+  onSave: (name: string, type: RoundType, allEntries: boolean) => void
   onCancel: () => void
   t: (key: string) => string
 }) {
   const [name, setName] = useState('Main Draw')
   const [type, setType] = useState<RoundType>('playoff')
+  const [allEntries, setAllEntries] = useState(false)
 
   return (
     <div className="flex items-center gap-2 rounded-md border border-dashed px-3 py-2">
@@ -52,7 +53,7 @@ function AddRoundForm({
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === 'Enter' && name.trim()) onSave(name.trim(), type)
+          if (e.key === 'Enter' && name.trim()) onSave(name.trim(), type, allEntries)
           if (e.key === 'Escape') onCancel()
         }}
         placeholder={t('rounds.namePlaceholder')}
@@ -70,11 +71,20 @@ function AddRoundForm({
           </option>
         ))}
       </select>
+      <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
+        <input
+          type="checkbox"
+          checked={allEntries}
+          onChange={(e) => setAllEntries(e.target.checked)}
+          className="h-3.5 w-3.5"
+        />
+        {t('rounds.allEntries')}
+      </label>
       <Button
         size="sm"
         className="h-7 shrink-0 text-xs"
         disabled={!name.trim() || isSaving}
-        onClick={() => name.trim() && onSave(name.trim(), type)}
+        onClick={() => name.trim() && onSave(name.trim(), type, allEntries)}
       >
         {t('rounds.add')}
       </Button>
@@ -167,13 +177,24 @@ export function TournamentRounds() {
     }
   }
 
-  async function handleAdd(eventId: string, name: string, type: RoundType) {
+  async function handleAdd(eventId: string, name: string, type: RoundType, allEntries: boolean) {
     setIsSaving(true)
     try {
       const round = await api.rounds.create({ event_id: eventId, name, type })
+      let addedTeams: RoundTeamWithTeam[] = []
+      if (allEntries) {
+        const teamIds = (tournamentTeamsByEvent[eventId] ?? []).map((tt) => tt.team_id)
+        if (teamIds.length > 0) {
+          try {
+            addedTeams = await api.roundTeams.addMany(round.id, teamIds)
+          } catch (err) {
+            alert(err instanceof Error ? err.message : String(err))
+          }
+        }
+      }
       setRoundsByEvent((prev) => ({ ...prev, [eventId]: [...(prev[eventId] ?? []), round] }))
-      setRoundTeamCounts((prev) => ({ ...prev, [round.id]: 0 }))
-      setRoundTeamsData((prev) => ({ ...prev, [round.id]: [] }))
+      setRoundTeamCounts((prev) => ({ ...prev, [round.id]: addedTeams.length }))
+      setRoundTeamsData((prev) => ({ ...prev, [round.id]: addedTeams }))
       setAddingEventId(null)
     } finally {
       setIsSaving(false)
@@ -425,7 +446,7 @@ export function TournamentRounds() {
                       <AddRoundForm
                         order={rounds.length + 1}
                         isSaving={isSaving}
-                        onSave={(name, type) => handleAdd(event.id, name, type)}
+                        onSave={(name, type, allEntries) => handleAdd(event.id, name, type, allEntries)}
                         onCancel={() => setAddingEventId(null)}
                         t={t}
                       />

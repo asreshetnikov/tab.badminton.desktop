@@ -202,6 +202,7 @@
     "addTeams": "Add Pair",
     "addTeamsTitle": "Add Pair to {{round}}",
     "addSelected": "Add {{count}} team(s)",
+    "allEntries": "All entries",
     "noEligibleTeams": "All registered doubles are already in this round.",
     "participants": "Participants",
     "matches": "Matches",
