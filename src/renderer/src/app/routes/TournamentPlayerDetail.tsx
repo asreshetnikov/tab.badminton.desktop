@@ -101,9 +101,12 @@ export function TournamentPlayerDetail() {
     [tournamentEntries, playerId]
   )
 
-  const entryByEventId = useMemo(() => {
-    const m = new Map<string, TournamentTeamWithTeam>()
-    for (const tt of playerEntry) m.set(tt.event_id, tt)
+  const entriesByEventId = useMemo(() => {
+    const m = new Map<string, TournamentTeamWithTeam[]>()
+    for (const tt of playerEntry) {
+      if (!m.has(tt.event_id)) m.set(tt.event_id, [])
+      m.get(tt.event_id)!.push(tt)
+    }
     return m
   }, [playerEntry])
 
@@ -288,161 +291,114 @@ export function TournamentPlayerDetail() {
       ) : (
         <div className="flex flex-col gap-2">
           {eligibleEvents.map((event) => {
-            const entry = entryByEventId.get(event.id)
-            const enrolled = !!entry
+            const eventEntries = entriesByEventId.get(event.id) ?? []
             const isDoubles = DOUBLES.includes(event.category)
-            const partner = entry?.team.players.find((pl) => pl.id !== playerId)
             const isOpen = openEventId === event.id
             const isSavingNow = !!saving[event.id]
 
-            if (enrolled) {
-              // ── enrolled card ──────────────────────────────────────────────
-              return (
-                <div
-                  key={event.id}
-                  className="flex items-center gap-3 rounded-lg border bg-muted/60 px-4 py-3 text-sm"
-                >
-                  <span
-                    className={cn(
-                      'rounded-full px-2 py-0.5 text-xs font-semibold',
-                      CATEGORY_STYLE[event.category]
-                    )}
-                  >
-                    {event.category}
-                  </span>
-                  <span className="font-medium">{event.name}</span>
-                  {isDoubles && partner && (
-                    <span className="text-muted-foreground">
-                      {t('playerDetail.with')} {partner.last_name} {partner.first_name}
-                    </span>
-                  )}
-                  <Check className="ml-auto h-4 w-4 text-green-600" />
-                </div>
-              )
-            }
-
-            // ── not enrolled card ──────────────────────────────────────────
-            const existingTeams = existingTeamsFor(event)
-            const partners = isDoubles ? partnersFor(event) : []
-            const selectedPartnerId = partnerIds[event.id] ?? ''
-
             return (
-              <div key={event.id} className="rounded-lg border text-sm">
-                {/* Card row */}
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <span
-                    className={cn(
-                      'rounded-full px-2 py-0.5 text-xs font-semibold opacity-60',
-                      CATEGORY_STYLE[event.category]
-                    )}
-                  >
-                    {event.category}
-                  </span>
-                  <span className="font-medium text-muted-foreground">{event.name}</span>
+              <div key={event.id} className="flex flex-col gap-2">
+                {/* One enrolled card per entry */}
+                {eventEntries.map((entry) => {
+                  const partner = entry.team.players.find((pl) => pl.id !== playerId)
+                  return (
+                    <div
+                      key={entry.id}
+                      className="flex items-center gap-3 rounded-lg border bg-muted/60 px-4 py-3 text-sm"
+                    >
+                      <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', CATEGORY_STYLE[event.category])}>
+                        {event.category}
+                      </span>
+                      <span className="font-medium">{event.name}</span>
+                      {isDoubles && partner && (
+                        <span className="text-muted-foreground">
+                          {t('playerDetail.with')} {partner.last_name} {partner.first_name}
+                        </span>
+                      )}
+                      <Check className="ml-auto h-4 w-4 text-green-600" />
+                    </div>
+                  )
+                })}
 
-                  <div className="ml-auto flex items-center gap-2">
-                    {!isDoubles ? (
-                      // Singles — one-click register
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-xs"
-                        disabled={isSavingNow}
-                        onClick={() => handleRegisterSingles(event)}
-                      >
-                        {t('playerDetail.register')}
-                      </Button>
-                    ) : (
-                      // Doubles — toggle panel
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 gap-1 text-xs"
-                        onClick={() => setOpenEventId(isOpen ? null : event.id)}
-                      >
-                        {t('playerDetail.register')}
-                        {isOpen ? (
-                          <ChevronUp className="h-3 w-3" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                {/* Not-enrolled card — shown only when there are no entries */}
+                {eventEntries.length === 0 && (() => {
+                  const existingTeams = existingTeamsFor(event)
+                  const partners = isDoubles ? partnersFor(event) : []
+                  const selectedPartnerId = partnerIds[event.id] ?? ''
+                  return (
+                    <div className="rounded-lg border text-sm">
+                      <div className="flex items-center gap-3 px-4 py-3">
+                        <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold opacity-60', CATEGORY_STYLE[event.category])}>
+                          {event.category}
+                        </span>
+                        <span className="font-medium text-muted-foreground">{event.name}</span>
+                        <div className="ml-auto flex items-center gap-2">
+                          {!isDoubles ? (
+                            <Button size="sm" variant="outline" className="h-7 text-xs" disabled={isSavingNow}
+                              onClick={() => handleRegisterSingles(event)}>
+                              {t('playerDetail.register')}
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" className="h-7 gap-1 text-xs"
+                              onClick={() => setOpenEventId(isOpen ? null : event.id)}>
+                              {t('playerDetail.register')}
+                              {isOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                            </Button>
+                          )}
+                        </div>
+                      </div>
 
-                {/* Doubles register panel */}
-                {isDoubles && isOpen && (
-                  <div className="border-t px-4 py-3 flex flex-col gap-4">
-
-                    {/* Existing teams */}
-                    {existingTeams.length > 0 && (
-                      <div className="flex flex-col gap-1.5">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          {t('playerDetail.existingPairs')}
-                        </p>
-                        {existingTeams.map((team) => {
-                          const teamPartner = team.players.find((pl) => pl.id !== playerId)
-                          return (
-                            <div
-                              key={team.id}
-                              className="flex items-center gap-3 rounded-md border px-3 py-2"
-                            >
-                              <span className="flex-1 text-sm">
-                                {teamPartner
-                                  ? `${teamPartner.last_name} ${teamPartner.first_name}`
-                                  : team.name}
-                              </span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 text-xs"
-                                disabled={isSavingNow}
-                                onClick={() => handleRegisterExisting(event, team)}
+                      {isDoubles && isOpen && (
+                        <div className="border-t px-4 py-3 flex flex-col gap-4">
+                          {existingTeams.length > 0 && (
+                            <div className="flex flex-col gap-1.5">
+                              <p className="text-xs font-medium text-muted-foreground">{t('playerDetail.existingPairs')}</p>
+                              {existingTeams.map((team) => {
+                                const teamPartner = team.players.find((pl) => pl.id !== playerId)
+                                return (
+                                  <div key={team.id} className="flex items-center gap-3 rounded-md border px-3 py-2">
+                                    <span className="flex-1 text-sm">
+                                      {teamPartner ? `${teamPartner.last_name} ${teamPartner.first_name}` : team.name}
+                                    </span>
+                                    <Button size="sm" variant="outline" className="h-7 text-xs" disabled={isSavingNow}
+                                      onClick={() => handleRegisterExisting(event, team)}>
+                                      {t('playerDetail.register')}
+                                    </Button>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                          <div className="flex flex-col gap-1.5">
+                            <p className="text-xs font-medium text-muted-foreground">{t('playerDetail.newPair')}</p>
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={selectedPartnerId}
+                                onChange={(e) => setPartnerIds((prev) => ({ ...prev, [event.id]: e.target.value }))}
+                                className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
                               >
-                                {t('playerDetail.register')}
+                                <option value="">{t('playerDetail.selectPartner')}</option>
+                                {partners.map((r) => (
+                                  <option key={r.player_id} value={r.player_id}>
+                                    {r.player.last_name} {r.player.first_name}
+                                    {r.player.club ? ` — ${r.player.club}` : ''}
+                                  </option>
+                                ))}
+                              </select>
+                              <Button size="sm" disabled={!selectedPartnerId || isSavingNow}
+                                onClick={() => handleCreatePair(event)}>
+                                {t('playerDetail.createAndRegister')}
                               </Button>
                             </div>
-                          )
-                        })}
-                      </div>
-                    )}
-
-                    {/* Create new pair */}
-                    <div className="flex flex-col gap-1.5">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        {t('playerDetail.newPair')}
-                      </p>
-                      <div className="flex items-center gap-2">
-                        <select
-                          value={selectedPartnerId}
-                          onChange={(e) =>
-                            setPartnerIds((prev) => ({ ...prev, [event.id]: e.target.value }))
-                          }
-                          className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                        >
-                          <option value="">{t('playerDetail.selectPartner')}</option>
-                          {partners.map((r) => (
-                            <option key={r.player_id} value={r.player_id}>
-                              {r.player.last_name} {r.player.first_name}
-                              {r.player.club ? ` — ${r.player.club}` : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <Button
-                          size="sm"
-                          disabled={!selectedPartnerId || isSavingNow}
-                          onClick={() => handleCreatePair(event)}
-                        >
-                          {t('playerDetail.createAndRegister')}
-                        </Button>
-                      </div>
-                      {partners.length === 0 && (
-                        <p className="text-xs text-muted-foreground">{t('playerDetail.noPartners')}</p>
+                            {partners.length === 0 && (
+                              <p className="text-xs text-muted-foreground">{t('playerDetail.noPartners')}</p>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                )}
+                  )
+                })()}
               </div>
             )
           })}

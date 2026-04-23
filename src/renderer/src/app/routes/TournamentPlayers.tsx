@@ -121,7 +121,7 @@ export function TournamentPlayers() {
       for (const p of tt.team.players) {
         if (!map.has(p.id)) map.set(p.id, [])
         const cats = map.get(p.id)!
-        if (!cats.includes(tt.team.category)) cats.push(tt.team.category)
+        cats.push(tt.team.category)
       }
     }
     map.forEach((cats) => cats.sort((a, b) => ORDER.indexOf(a) - ORDER.indexOf(b)))

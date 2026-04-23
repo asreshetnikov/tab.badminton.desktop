@@ -95,20 +95,36 @@ export function TournamentTeams() {
     [acceptedPlayers]
   )
 
+  const activeEntries = useMemo(
+    () =>
+      entries
+        .filter((e) => e.event_id === activeEventId)
+        .sort((a, b) => a.team.name.localeCompare(b.team.name)),
+    [entries, activeEventId]
+  )
+
+  // Player IDs already assigned to a team in the active event
+  const alreadyPairedIds = useMemo(() => {
+    const ids = new Set<string>()
+    activeEntries.forEach((entry) => entry.team.players.forEach((p) => ids.add(p.id)))
+    return ids
+  }, [activeEntries])
+
   // Teams eligible for the active event:
   // - matching category
   // - not yet registered in this event
-  // - for singles (MS/WS): the player must be accepted in the tournament
+  // - all players accepted in the tournament
+  // - no player already assigned to another registered team in this event
   const eligibleTeams = useMemo(() => {
     if (!activeEvent) return []
     return allTeams.filter((t) => {
       if (t.category !== activeEvent.category) return false
       if (registeredInActiveEvent.has(t.id)) return false
-      // all players in the team must be accepted in the tournament
       if (t.players.some((p) => !acceptedPlayerIds.has(p.id))) return false
+      if (t.players.some((p) => alreadyPairedIds.has(p.id))) return false
       return true
     })
-  }, [allTeams, activeEvent, registeredInActiveEvent, acceptedPlayerIds])
+  }, [allTeams, activeEvent, registeredInActiveEvent, acceptedPlayerIds, alreadyPairedIds])
 
   const filteredTeams = useMemo(() => {
     const q = search.toLowerCase()
@@ -125,14 +141,29 @@ export function TournamentTeams() {
     return result.sort((a, b) => a.name.localeCompare(b.name))
   }, [eligibleTeams, search])
 
+  // Player IDs claimed by currently selected teams in the dialog
+  const blockedPlayerIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const team of eligibleTeams) {
+      if (selected.has(team.id)) team.players.forEach((p) => ids.add(p.id))
+    }
+    return ids
+  }, [eligibleTeams, selected])
+
+  function isTeamDisabled(team: TeamWithPlayers): boolean {
+    return !selected.has(team.id) && team.players.some((p) => blockedPlayerIds.has(p.id))
+  }
+
+  const selectableFilteredTeams = filteredTeams.filter((t) => !isTeamDisabled(t))
+
   const allFilteredSelected =
-    filteredTeams.length > 0 && filteredTeams.every((t) => selected.has(t.id))
+    selectableFilteredTeams.length > 0 && selectableFilteredTeams.every((t) => selected.has(t.id))
 
   function toggleAll() {
     setSelected((prev) => {
       const next = new Set(prev)
-      if (allFilteredSelected) filteredTeams.forEach((t) => next.delete(t.id))
-      else filteredTeams.forEach((t) => next.add(t.id))
+      if (allFilteredSelected) selectableFilteredTeams.forEach((t) => next.delete(t.id))
+      else selectableFilteredTeams.forEach((t) => next.add(t.id))
       return next
     })
   }
@@ -179,15 +210,24 @@ export function TournamentTeams() {
     if (pairPlayer1Id === pairPlayer2Id) return
     setIsCreatingPair(true)
     try {
-      const p1 = acceptedPlayers.find((p) => p.player_id === pairPlayer1Id)!
-      const p2 = acceptedPlayers.find((p) => p.player_id === pairPlayer2Id)!
-      const name = `${p1.player.last_name} / ${p2.player.last_name}`
-      const team = await api.teams.create({
-        name,
-        category: activeEvent.category,
-        player_ids: [pairPlayer1Id, pairPlayer2Id]
-      })
-      setAllTeams((prev) => [...prev, team])
+      const playerIds = new Set([pairPlayer1Id, pairPlayer2Id])
+      const existing = allTeams.find(
+        (t) =>
+          t.category === activeEvent.category &&
+          t.players.length === 2 &&
+          t.players.every((p) => playerIds.has(p.id))
+      )
+      let team = existing
+      if (!team) {
+        const p1 = acceptedPlayers.find((p) => p.player_id === pairPlayer1Id)!
+        const p2 = acceptedPlayers.find((p) => p.player_id === pairPlayer2Id)!
+        team = await api.teams.create({
+          name: `${p1.player.last_name} / ${p2.player.last_name}`,
+          category: activeEvent.category,
+          player_ids: [pairPlayer1Id, pairPlayer2Id]
+        })
+        setAllTeams((prev) => [...prev, team!])
+      }
       const entry = await api.tournamentTeams.add(id, activeEventId, team.id)
       setEntries((prev) => [...prev, entry])
       setPairDialogOpen(false)
@@ -218,17 +258,6 @@ export function TournamentTeams() {
         a.player.first_name.localeCompare(b.player.first_name)
       )
   }
-
-  const activeEntries = entries
-    .filter((e) => e.event_id === activeEventId)
-    .sort((a, b) => a.team.name.localeCompare(b.team.name))
-
-  // Player IDs already assigned to a team in the active event
-  const alreadyPairedIds = useMemo(() => {
-    const ids = new Set<string>()
-    activeEntries.forEach((entry) => entry.team.players.forEach((p) => ids.add(p.id)))
-    return ids
-  }, [activeEntries])
 
   const tabsScrollRef = useRef<HTMLDivElement>(null)
   const [canScrollLeft, setCanScrollLeft] = useState(false)
@@ -450,20 +479,27 @@ export function TournamentTeams() {
               <p className="p-4 text-center text-sm text-muted-foreground">{t('tournamentTeams.noEntriesFound')}</p>
             ) : (
               <ul>
-                {filteredTeams.map((team) => (
-                  <li key={team.id}>
-                    <label className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-muted">
-                      <input
-                        type="checkbox"
-                        checked={selected.has(team.id)}
-                        onChange={() => toggle(team.id)}
-                        className="h-4 w-4 rounded border-input accent-primary"
-                      />
-                      <span className="flex-1 text-sm font-medium">{team.name}</span>
-                      <span className="text-xs text-muted-foreground">{playerNames(team)}</span>
-                    </label>
-                  </li>
-                ))}
+                {filteredTeams.map((team) => {
+                  const disabled = isTeamDisabled(team)
+                  return (
+                    <li key={team.id}>
+                      <label className={cn(
+                        'flex items-center gap-3 px-3 py-2',
+                        disabled ? 'cursor-not-allowed opacity-40' : 'cursor-pointer hover:bg-muted'
+                      )}>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(team.id)}
+                          disabled={disabled}
+                          onChange={() => toggle(team.id)}
+                          className="h-4 w-4 rounded border-input accent-primary"
+                        />
+                        <span className="flex-1 text-sm font-medium">{team.name}</span>
+                        <span className="text-xs text-muted-foreground">{playerNames(team)}</span>
+                      </label>
+                    </li>
+                  )
+                })}
               </ul>
             )}
           </div>
