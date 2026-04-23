@@ -105,6 +105,7 @@
       "rejected": "Rejected"
     },
     "registeredAt": "Registered",
+    "acceptAll": "Accept all pending",
     "accept": "Accept",
     "reject": "Reject",
     "remove": "Remove"

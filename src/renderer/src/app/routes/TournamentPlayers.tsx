@@ -204,6 +204,15 @@ export function TournamentPlayers() {
     setRegistrations((prev) => prev.map((r) => (r.id === regId ? updated : r)))
   }
 
+  async function handleAcceptAll() {
+    const pending = registrations.filter((r) => r.status === 'pending')
+    const updated = await Promise.all(pending.map((r) => api.tournamentPlayers.updateStatus(r.id, 'accepted')))
+    setRegistrations((prev) => {
+      const map = new Map(updated.map((u) => [u.id, u]))
+      return prev.map((r) => map.get(r.id) ?? r)
+    })
+  }
+
   async function handleRemove(regId: string) {
     await api.tournamentPlayers.remove(regId)
     setRegistrations((prev) => prev.filter((r) => r.id !== regId))
@@ -229,6 +238,11 @@ export function TournamentPlayers() {
             <span className="text-sm text-muted-foreground">
               {displayRegistrations.length} {t('players.title').toLowerCase()}
             </span>
+          )}
+          {registrations.some((r) => r.status === 'pending') && (
+            <Button variant="outline" onClick={handleAcceptAll}>
+              {t('registrations.acceptAll')}
+            </Button>
           )}
           {availablePlayers.length > 0 && (
             <Button onClick={openDialog}>
