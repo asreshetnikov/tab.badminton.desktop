@@ -38,7 +38,9 @@ export function TournamentDetail() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [counts, setCounts] = useState<TabCounts | null>(null)
+  const [hasAcceptedPlayers, setHasAcceptedPlayers] = useState(false)
 
   useEffect(() => {
     if (id) api.tournament.getById(id).then(setTournament)
@@ -60,6 +62,7 @@ export function TournamentDetail() {
         rounds: roundsArr.flat().length,
         matches: scheduled.length + unscheduled.length,
       })
+      setHasAcceptedPlayers(players.some((p) => p.status === 'accepted'))
     })
   }, [id])
 
@@ -90,9 +93,12 @@ export function TournamentDetail() {
   async function handleDelete() {
     if (!tournament) return
     setIsDeleting(true)
+    setDeleteError(null)
     try {
       await api.tournament.delete(tournament.id)
       navigate('/')
+    } catch (err) {
+      setDeleteError(t('tournamentDetail.deleteErrorAccepted'))
     } finally {
       setIsDeleting(false)
     }
@@ -144,8 +150,8 @@ export function TournamentDetail() {
           <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} title={t('common.edit')}>
             <Pencil className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={() => setDeleteOpen(true)} title={t('common.delete')}>
-            <Trash2 className="h-4 w-4 text-destructive" />
+          <Button variant="ghost" size="icon" onClick={() => setDeleteOpen(true)} title={t('common.delete')} disabled={hasAcceptedPlayers}>
+            <Trash2 className="h-4 w-4 text-muted-foreground" />
           </Button>
         </div>
       </div>
@@ -212,7 +218,7 @@ export function TournamentDetail() {
         defaultAgeMax={tournament.age_max}
       />
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteError(null) }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('tournamentDetail.deleteTitle')}</DialogTitle>
@@ -220,6 +226,9 @@ export function TournamentDetail() {
               {t('tournamentDetail.deleteDescription', { name: tournament.name })}
             </DialogDescription>
           </DialogHeader>
+          {deleteError && (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteOpen(false)}>
               {t('common.cancel')}

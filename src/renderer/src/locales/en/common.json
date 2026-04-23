@@ -27,6 +27,7 @@
     "notFound": "Tournament not found.",
     "deleteTitle": "Delete tournament",
     "deleteDescription": "This will permanently delete \"{{name}}\" and all its data. This action cannot be undone.",
+    "deleteErrorAccepted": "Cannot delete a tournament with accepted player registrations. Reject or remove all accepted registrations first.",
     "venue": "Venue",
     "dateStart": "Start Date",
     "dateEnd": "End Date",
