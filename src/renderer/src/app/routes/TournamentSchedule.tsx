@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2, List, LayoutGrid } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -72,6 +72,9 @@ export function TournamentSchedule() {
   // Drag-and-drop
   const [draggedMatchId, setDraggedMatchId] = useState<string | null>(null)
   const [dragOverCourtId, setDragOverCourtId] = useState<string | null>(null)
+
+  // View mode
+  const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list')
 
   // Filters
   const [date, setDate] = useState(todayIso)
@@ -249,6 +252,31 @@ export function TournamentSchedule() {
         }),
     [rightMatches, date, categoryFilter, roundFilter]
   )
+
+  // All dates that have at least one match with scheduledAt (for timeline tabs)
+  const timelineDates = useMemo(() => {
+    const dates = new Set(
+      allMatches.filter((m) => m.scheduledAt).map((m) => m.scheduledAt!.slice(0, 10))
+    )
+    return [...dates].sort()
+  }, [allMatches])
+
+  // All matches with scheduledAt on selected date (any status) for timeline view
+  const timelineMatches = useMemo(
+    () =>
+      allMatches
+        .filter((m) => m.scheduledAt?.startsWith(date) && matchFilter(m))
+        .sort((a, b) => (a.scheduledAt ?? '').localeCompare(b.scheduledAt ?? '')),
+    [allMatches, date, categoryFilter, roundFilter]
+  )
+
+  // Auto-select first timeline date when switching to timeline view
+  useEffect(() => {
+    if (viewMode !== 'timeline') return
+    if (timelineDates.length > 0 && !timelineDates.includes(date)) {
+      setDate(timelineDates[0])
+    }
+  }, [viewMode, timelineDates])
 
   // ─── Auto schedule ─────────────────────────────────────────────────────────
 
@@ -508,6 +536,27 @@ export function TournamentSchedule() {
         <span className="text-muted-foreground">/</span>
         <h1 className="text-lg font-semibold">{t('schedule.title')}</h1>
         <div className="ml-auto flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex overflow-hidden rounded-md border">
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-8 w-8 rounded-none"
+              onClick={() => setViewMode('list')}
+              title={t('schedule.viewList')}
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              variant={viewMode === 'timeline' ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-8 w-8 rounded-none border-l"
+              onClick={() => setViewMode('timeline')}
+              title={t('schedule.viewTimeline')}
+            >
+              <LayoutGrid className="h-4 w-4" />
+            </Button>
+          </div>
           <Button
             variant="outline"
             size="sm"
@@ -633,7 +682,54 @@ export function TournamentSchedule() {
         </div>
       )}
 
-      {/* Two-column body */}
+      {/* Body */}
+      {viewMode === 'timeline' ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          {/* Date tabs */}
+          <div className="flex items-center gap-2 border-b bg-muted/20 px-4 py-2">
+            <h2 className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {t('schedule.timeline')}
+            </h2>
+            {timelineDates.length > 0 && (
+              <div className="ml-3 flex items-center gap-1 overflow-x-auto">
+                {timelineDates.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDate(d)}
+                    title={d}
+                    className={cn(
+                      'shrink-0 rounded px-2.5 py-0.5 text-xs font-medium transition-colors',
+                      date === d
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:bg-muted'
+                    )}
+                  >
+                    {d.slice(8, 10)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {unscheduled.filter((m) => m.status === 'scheduled' || m.status === 'ready').length > 0 && (
+              <span className="ml-auto text-xs text-muted-foreground">
+                {t('schedule.unscheduledCount', {
+                  count: unscheduled.filter((m) => m.status === 'scheduled' || m.status === 'ready').length
+                })}
+              </span>
+            )}
+          </div>
+          {/* Timeline grid */}
+          <div className="flex-1 overflow-y-auto">
+            <TimelineView
+              matches={timelineMatches}
+              maxBracketRoundByRound={maxBracketRoundByRound}
+              onOpenAssign={openAssign}
+              onOpenResult={openResultDialog}
+            />
+          </div>
+        </div>
+      ) : (
+
+      /* Two-column body */
       <div className="flex min-h-0 flex-1 divide-x overflow-hidden">
 
         {/* Left column — Unscheduled */}
@@ -787,6 +883,7 @@ export function TournamentSchedule() {
           </div>
         </div>
       </div>
+      )} {/* end viewMode === 'timeline' ? ... : */}
 
       {/* Assign / Edit dialog */}
       <Dialog open={!!assignMatch} onOpenChange={(open) => !open && closeAssign()}>
@@ -1168,6 +1265,173 @@ function MatchCard({
         </div>
       </div>
       {action}
+    </div>
+  )
+}
+
+// ─── Timeline utilities ───────────────────────────────────────────────────────
+
+function buildTimeSlots(matches: MatchSlot[]): string[] {
+  const slots = new Set(matches.map((m) => m.scheduledAt!.slice(11, 16)))
+  return [...slots].sort()
+}
+
+function groupBySlot(matches: MatchSlot[]): Map<string, MatchSlot[]> {
+  const map = new Map<string, MatchSlot[]>()
+  for (const m of matches) {
+    if (!m.scheduledAt) continue
+    const slot = m.scheduledAt.slice(11, 16)
+    if (!map.has(slot)) map.set(slot, [])
+    map.get(slot)!.push(m)
+  }
+  return map
+}
+
+// ─── TimelineView component ───────────────────────────────────────────────────
+
+function TimelineView({
+  matches,
+  maxBracketRoundByRound,
+  onOpenAssign,
+  onOpenResult,
+}: {
+  matches: MatchSlot[]
+  maxBracketRoundByRound: Map<string, number>
+  onOpenAssign: (m: MatchSlot) => void
+  onOpenResult: (m: MatchSlot) => void
+}) {
+  const { t } = useTranslation()
+  const slots = buildTimeSlots(matches)
+  const bySlot = groupBySlot(matches)
+
+  if (matches.length === 0) {
+    return (
+      <div className="flex items-center justify-center p-8 text-sm text-muted-foreground">
+        {t('schedule.noTimelineMatches')}
+      </div>
+    )
+  }
+
+  return (
+    <div className="p-4">
+      {slots.map((slot) => {
+        const slotMatches = bySlot.get(slot) ?? []
+        return (
+          <div key={slot} className="flex min-h-[3.5rem] gap-3 border-b py-2 last:border-0">
+            <div
+              className={cn(
+                'w-14 shrink-0 pt-1.5 font-mono text-sm tabular-nums',
+                slotMatches.length > 0 ? 'font-semibold text-foreground' : 'text-muted-foreground/40'
+              )}
+            >
+              {slot}
+            </div>
+            <div className="flex flex-1 flex-wrap gap-2">
+              {slotMatches.map((m) => (
+                <TimelineMatchCard
+                  key={m.id}
+                  match={m}
+                  maxBracketRound={maxBracketRoundByRound.get(m.roundId)}
+                  onEdit={() => onOpenAssign(m)}
+                  onResult={() => onOpenResult(m)}
+                />
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── TimelineMatchCard component ──────────────────────────────────────────────
+
+function TimelineMatchCard({
+  match,
+  maxBracketRound,
+  onEdit,
+  onResult,
+}: {
+  match: MatchSlot
+  maxBracketRound?: number
+  onEdit: () => void
+  onResult: () => void
+}) {
+  const { t } = useTranslation()
+  const isActive =
+    match.status === 'live' ||
+    match.status === 'finished' ||
+    match.status === 'walkover' ||
+    match.status === 'retired'
+
+  const bracketLabel =
+    match.roundType === 'playoff' && match.bracketRound !== null && maxBracketRound !== undefined
+      ? (() => {
+          const depth = maxBracketRound - match.bracketRound
+          return depth === 0
+            ? t('schedule.bracketFinal')
+            : depth === 1
+            ? t('schedule.bracketSemiFinal')
+            : depth === 2
+            ? t('schedule.bracketQuarterFinal')
+            : t('schedule.bracketRoundOf', { n: Math.pow(2, depth + 1) })
+        })()
+      : null
+
+  return (
+    <div
+      className={cn(
+        'flex w-44 cursor-pointer flex-col gap-1 rounded-lg border px-3 py-2 text-xs transition-colors hover:brightness-95',
+        CATEGORY_COLORS[match.eventCategory] ?? 'bg-gray-50 border-gray-200'
+      )}
+      onClick={isActive ? onResult : onEdit}
+    >
+      {/* Category + status + court */}
+      <div className="flex items-center gap-1.5">
+        <span
+          className={cn(
+            'shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold',
+            CATEGORY_BADGE[match.eventCategory] ?? 'bg-gray-100 text-gray-700'
+          )}
+        >
+          {match.eventCategory}
+        </span>
+        {match.status === 'live' && (
+          <span className="rounded bg-green-500 px-1.5 py-0.5 text-[10px] font-bold text-white">
+            {t('matches.status.live')}
+          </span>
+        )}
+        {(match.status === 'finished' || match.status === 'walkover' || match.status === 'retired') && (
+          <span className="rounded bg-muted px-1 py-0.5 text-[10px] text-muted-foreground">
+            {t(`matches.status.${match.status}`)}
+          </span>
+        )}
+        {match.courtName && (
+          <span className="ml-auto shrink-0 rounded bg-slate-100 px-1 py-0.5 text-[10px] font-semibold text-slate-600">
+            {match.courtName}
+          </span>
+        )}
+      </div>
+
+      {/* Teams */}
+      <div className="font-medium leading-snug">
+        <div className="truncate">{match.team1Name ?? t('schedule.tbd')}</div>
+        <div className="truncate">{match.team2Name ?? t('schedule.tbd')}</div>
+      </div>
+
+      {/* Score */}
+      {match.s1 !== null && match.s2 !== null && (
+        <div className="font-mono font-semibold tabular-nums">
+          {match.s1} – {match.s2}
+        </div>
+      )}
+
+      {/* Round + bracket/tour label */}
+      <div className="truncate text-[11px] opacity-60">
+        {match.roundName}
+        {bracketLabel && ` · ${bracketLabel}`}
+        {match.roundType === 'round_robin' && match.tour !== null && ` · ${t('schedule.tour', { n: match.tour })}`}
+      </div>
     </div>
   )
 }

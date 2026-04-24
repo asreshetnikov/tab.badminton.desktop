@@ -358,6 +358,9 @@
     "clearNotBeforeHard": "Clear",
     "notBeforeSoftLabel": "Not before (soft)",
     "restWarning": "Rest warning: player may not have enough rest",
-    "missingCourts": "Add courts to use auto-scheduling"
+    "missingCourts": "Add courts to use auto-scheduling",
+    "viewList": "List view",
+    "viewTimeline": "Timeline view",
+    "noTimelineMatches": "No matches scheduled for this day."
   }
 }
