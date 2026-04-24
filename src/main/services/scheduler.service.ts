@@ -661,12 +661,14 @@ function _runScheduler(
     }
   }
 
-  // Build event lookup for cross_pending computation
+  // Build event lookup for cross_pending computation and category affinity
   const allEventIds = db
-    .select({ id: schema.events.id })
+    .select({ id: schema.events.id, category: schema.events.category })
     .from(schema.events)
     .where(eq(schema.events.tournament_id, tournamentId))
     .all()
+
+  const categoryByEvent = new Map(allEventIds.map((e) => [e.id, e.category]))
 
   const allRounds = db
     .select()
@@ -702,6 +704,7 @@ function _runScheduler(
     const maxBracketRound = maxBracketRoundByRound.get(m.round_id) ?? 1
     const categoryDepth = computeCategoryDepth(bracketRound, maxBracketRound)
     const eventId = eventByRound.get(m.round_id) ?? ''
+    const category = categoryByEvent.get(eventId) ?? ''
 
     const playerIds = getPlayerIdsForMatch(db, m.team1_id, m.team2_id)
     const crossPending =
@@ -712,7 +715,12 @@ function _runScheduler(
     const priority = categoryDepth + crossPending
     const effectiveNotBefore = computeEffectiveNotBefore(m.not_before_soft, m.not_before_hard, dayStart)
 
-    return { match: m, priority, effectiveNotBefore, bracketRound }
+    // "Early round" = R32 or earlier: enough matches to fill multiple court slots.
+    // Condition: maxBracketRound - bracketRound >= 4 (≥16 matches in that round).
+    // Only applies to brackets with 5+ rounds (≥32 players), not small brackets.
+    const isEarlyRound = maxBracketRound - bracketRound >= 4
+
+    return { match: m, priority, effectiveNotBefore, bracketRound, category, isEarlyRound }
   })
 
   // Sort: priority desc, effectiveNotBefore asc as tie-breaker
@@ -745,6 +753,18 @@ function _runScheduler(
   // Slot-fill: always assign to the earliest-free court
   const remaining = [...matchesWithPriority]
 
+  // Category affinity for early rounds (R32 and earlier):
+  // once we start a category's block, keep scheduling it until exhausted.
+  let activeCategory: string | null = null
+
+  const sortByPriority = (
+    a: (typeof remaining)[number],
+    b: (typeof remaining)[number]
+  ): number => {
+    if (b.priority !== a.priority) return b.priority - a.priority
+    return a.effectiveNotBefore.getTime() - b.effectiveNotBefore.getTime()
+  }
+
   while (remaining.length > 0) {
     courtSlots.sort((a, b) => a.endTime - b.endTime)
     const earliestSlot = courtSlots[0]
@@ -764,12 +784,36 @@ function _runScheduler(
       continue
     }
 
-    // Pick highest-priority available match; ties broken by earliest effectiveNotBefore
-    available.sort((a, b) => {
-      if (b.priority !== a.priority) return b.priority - a.priority
-      return a.effectiveNotBefore.getTime() - b.effectiveNotBefore.getTime()
-    })
-    const best = available[0]
+    // Pick next match:
+    // For early rounds (R32 and earlier), apply category affinity:
+    //   prefer matches of the current active category; switch only when it's exhausted.
+    // For later rounds, use pure priority ordering.
+    const earlyAvailable = available.filter((item) => item.isEarlyRound)
+    let best: (typeof remaining)[number]
+
+    if (earlyAvailable.length > 0) {
+      if (activeCategory !== null) {
+        const sameCat = earlyAvailable.filter((item) => item.category === activeCategory)
+        if (sameCat.length > 0) {
+          // Continue current category block
+          best = [...sameCat].sort(sortByPriority)[0]
+        } else {
+          // Current category exhausted — switch to highest-priority early-round category
+          const sorted = [...earlyAvailable].sort(sortByPriority)
+          best = sorted[0]
+          activeCategory = best.category
+        }
+      } else {
+        // No active category yet — start with highest-priority early-round match
+        const sorted = [...earlyAvailable].sort(sortByPriority)
+        best = sorted[0]
+        activeCategory = best.category
+      }
+    } else {
+      // All early rounds done (or none exist) — use pure priority ordering
+      activeCategory = null
+      best = [...available].sort(sortByPriority)[0]
+    }
 
     const scheduledDate = toLocalDateStr(new Date(slotFreeAt))
     const dur = getMatchDuration(db, tournamentId, best.bracketRound, scheduledDate)
