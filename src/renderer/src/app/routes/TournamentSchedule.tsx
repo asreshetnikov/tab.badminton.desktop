@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2, List, LayoutGrid } from 'lucide-react'
+import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2, List, LayoutGrid, RefreshCw } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -68,6 +68,10 @@ export function TournamentSchedule() {
 
   // Auto-schedule
   const [isAutoScheduling, setIsAutoScheduling] = useState(false)
+
+  // Regenerate
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [regenConfirmOpen, setRegenConfirmOpen] = useState(false)
 
   // Drag-and-drop
   const [draggedMatchId, setDraggedMatchId] = useState<string | null>(null)
@@ -288,6 +292,25 @@ export function TournamentSchedule() {
       await loadData()
     } finally {
       setIsAutoScheduling(false)
+    }
+  }
+
+  // ─── Regenerate all matches ────────────────────────────────────────────────
+
+  const hasPlayedMatches = useMemo(
+    () => allMatches.some((m) => m.status === 'finished' || m.status === 'walkover' || m.status === 'retired'),
+    [allMatches]
+  )
+
+  async function handleRegenerate() {
+    if (!id) return
+    setRegenConfirmOpen(false)
+    setIsRegenerating(true)
+    try {
+      await api.matches.regenerateForTournament(id)
+    } finally {
+      await loadData()
+      setIsRegenerating(false)
     }
   }
 
@@ -566,6 +589,17 @@ export function TournamentSchedule() {
             <Settings2 className="mr-1.5 h-4 w-4" />
             {t('schedule.settings')}
           </Button>
+          {!hasPlayedMatches && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRegenConfirmOpen(true)}
+              disabled={isRegenerating}
+            >
+              <RefreshCw className="mr-1.5 h-4 w-4" />
+              {t('schedule.regenerate')}
+            </Button>
+          )}
           <Button
             size="sm"
             onClick={handleAutoSchedule}
@@ -1033,6 +1067,24 @@ export function TournamentSchedule() {
             </Button>
             <Button onClick={conflicts.length > 0 ? handleSaveForce : handleSave} disabled={isSaving}>
               {t('common.save')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Regenerate confirmation dialog */}
+      <Dialog open={regenConfirmOpen} onOpenChange={setRegenConfirmOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t('schedule.regenerateTitle')}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">{t('schedule.regenerateDescription')}</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegenConfirmOpen(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="destructive" onClick={handleRegenerate}>
+              {t('schedule.regenerate')}
             </Button>
           </DialogFooter>
         </DialogContent>

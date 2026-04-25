@@ -361,6 +361,9 @@
     "missingCourts": "Add courts to use auto-scheduling",
     "viewList": "List view",
     "viewTimeline": "Timeline view",
-    "noTimelineMatches": "No matches scheduled for this day."
+    "noTimelineMatches": "No matches scheduled for this day.",
+    "regenerate": "Regenerate",
+    "regenerateTitle": "Regenerate all matches?",
+    "regenerateDescription": "This will delete all matches across all categories and rounds and regenerate them from scratch. Any results entered will be lost."
   }
 }

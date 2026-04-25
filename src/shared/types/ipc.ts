@@ -129,6 +129,7 @@ export interface AppAPI {
     generatePlayoff(roundId: string): Promise<MatchWithTeams[]>
     listByRound(roundId: string): Promise<MatchWithTeams[]>
     deleteByRound(roundId: string): Promise<void>
+    regenerateForTournament(tournamentId: string): Promise<void>
     startMatch(matchId: string, actualStart?: string): Promise<MatchWithTeams | undefined>
     updateResult(matchId: string, dto: UpdateMatchResultDTO): Promise<{ match: MatchWithTeams; standings: RoundTableRowWithTeam[] }>
   }

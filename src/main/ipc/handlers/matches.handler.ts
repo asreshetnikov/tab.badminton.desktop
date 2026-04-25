@@ -23,6 +23,36 @@ export function registerMatchesHandler(): void {
   ipcMain.handle('matches:deleteByRound', (_e, roundId: string) =>
     new MatchRepository(getDb()).deleteByRound(roundId)
   )
+  ipcMain.handle('matches:regenerateForTournament', (_e, tournamentId: string) => {
+    const db = getDb()
+    const events = db
+      .select({ id: schema.events.id })
+      .from(schema.events)
+      .where(eq(schema.events.tournament_id, tournamentId))
+      .all()
+    for (const event of events) {
+      const rounds = db
+        .select({ id: schema.rounds.id, type: schema.rounds.type })
+        .from(schema.rounds)
+        .where(eq(schema.rounds.event_id, event.id))
+        .all()
+      for (const round of rounds) {
+        new MatchRepository(db).deleteByRound(round.id)
+        const teamCount = db
+          .select({ team_id: schema.round_teams.team_id })
+          .from(schema.round_teams)
+          .where(eq(schema.round_teams.round_id, round.id))
+          .all().length
+        if (teamCount < 2) continue
+        if (round.type === 'round_robin') {
+          generateMatches(db, round.id)
+          updateStandings(db, round.id)
+        } else {
+          generateBracket(db, round.id)
+        }
+      }
+    }
+  })
   ipcMain.handle('matches:generatePlayoff', (_e, roundId: string) =>
     generateBracket(getDb(), roundId)
   )
