@@ -3,12 +3,16 @@
  *
  * Implements the priority-based scheduling algorithm for single-elimination brackets.
  *
- * Priority formula:
- *   priority(match) = category_depth + max(cross_pending)
+ * Sort order (descending priority):
+ *   1. category_depth  — rounds remaining until final (final=1, semi=2, quarter=3, ...)
+ *                        earlier rounds → more downstream matches blocked → scheduled first
+ *   2. cross_pending   — max over players: unfinished matches in OTHER events
+ *                        players competing in many categories get earlier slots
+ *   3. effective_not_before ASC — tie-breaker: earliest available player wins
  *
- * where:
- *   category_depth = rounds remaining until final (final=1, semi=2, quarter=3, ...)
- *   cross_pending  = count of unfinished matches this player has in OTHER events
+ * Category affinity (block scheduling) applies only to R32 and earlier (large brackets
+ * with 5+ rounds). From R16 onward pure priority ordering is used so that players
+ * competing across multiple categories are not bottlenecked at the end.
  *
  * not_before_soft(match) = max over all players: last_end(player) + rest_minutes
  * effective_not_before   = max(not_before_soft, not_before_hard)
@@ -720,12 +724,13 @@ function _runScheduler(
     // Only applies to brackets with 5+ rounds (≥32 players), not small brackets.
     const isEarlyRound = maxBracketRound - bracketRound >= 4
 
-    return { match: m, priority, effectiveNotBefore, bracketRound, category, isEarlyRound }
+    return { match: m, priority, categoryDepth, crossPending, effectiveNotBefore, bracketRound, category, isEarlyRound }
   })
 
-  // Sort: priority desc, effectiveNotBefore asc as tie-breaker
+  // Sort: categoryDepth desc → crossPending desc → effectiveNotBefore asc
   matchesWithPriority.sort((a, b) => {
-    if (b.priority !== a.priority) return b.priority - a.priority
+    if (b.categoryDepth !== a.categoryDepth) return b.categoryDepth - a.categoryDepth
+    if (b.crossPending !== a.crossPending) return b.crossPending - a.crossPending
     return a.effectiveNotBefore.getTime() - b.effectiveNotBefore.getTime()
   })
 
@@ -761,7 +766,8 @@ function _runScheduler(
     a: (typeof remaining)[number],
     b: (typeof remaining)[number]
   ): number => {
-    if (b.priority !== a.priority) return b.priority - a.priority
+    if (b.categoryDepth !== a.categoryDepth) return b.categoryDepth - a.categoryDepth
+    if (b.crossPending !== a.crossPending) return b.crossPending - a.crossPending
     return a.effectiveNotBefore.getTime() - b.effectiveNotBefore.getTime()
   }
 
@@ -869,18 +875,13 @@ function _preScheduleBracket(
 
   // Compute bracket rounds for ordering and duration lookup
   const bracketRoundByMatch = new Map<string, number>()
+  const maxBracketRoundByRound = new Map<string, number>()
   for (const round of playoffRounds) {
     const roundMatches = allMatches.filter((m) => m.round_id === round.id)
     const brs = computeBracketRoundsForRound(roundMatches)
     brs.forEach((br, mid) => bracketRoundByMatch.set(mid, br))
+    if (brs.size > 0) maxBracketRoundByRound.set(round.id, Math.max(...brs.values()))
   }
-
-  // Process in ascending bracketRound order (leaf rounds first)
-  needsSchedule.sort((a, b) => {
-    const brA = bracketRoundByMatch.get(a.id) ?? 1
-    const brB = bracketRoundByMatch.get(b.id) ?? 1
-    return brA - brB
-  })
 
   // Track start time (ms) for every match that has been scheduled, including
   // Phase 2 READY matches. Used to compute not_before for parent matches.
@@ -891,46 +892,102 @@ function _preScheduleBracket(
 
   const slots: CourtSlot[] = initialCourtSlots.map((s) => ({ ...s }))
 
+  // Group by bracketRound and process level by level (ascending).
+  // Within each level, compute notBeforeMs for all matches first, then sort
+  // by notBeforeMs ASC so that categories whose players recovered earliest
+  // run first. This naturally schedules XD R2 (players done at 13:30)
+  // before MD R2 (players done at 15:00), even though they share bracketRound=2.
+  const byBracketRound = new Map<number, typeof needsSchedule>()
   for (const m of needsSchedule) {
-    const br = bracketRoundByMatch.get(m.id) ?? null
+    const br = bracketRoundByMatch.get(m.id) ?? 1
+    if (!byBracketRound.has(br)) byBracketRound.set(br, [])
+    byBracketRound.get(br)!.push(m)
+  }
+  const sortedBracketRounds = [...byBracketRound.keys()].sort((a, b) => a - b)
 
-    // A match can only start after BOTH its child matches end + rest_minutes.
-    // This ensures the winner has time to rest before the next round.
-    let notBeforeMs = 0
-    for (const childId of [m.left_match_id, m.right_match_id]) {
-      if (!childId) continue
-      const childStartMs = startMsById.get(childId)
-      if (childStartMs === undefined) continue
-      const childBr = bracketRoundByMatch.get(childId) ?? null
-      const childDate = toLocalDateStr(new Date(childStartMs))
-      const childDur = getMatchDuration(db, tournamentId, childBr, childDate)
-      notBeforeMs = Math.max(notBeforeMs, childStartMs + childDur * 60 * 1000 + restMinutes * 60 * 1000)
-    }
+  for (const bracketRound of sortedBracketRounds) {
+    const matchesInRound = byBracketRound.get(bracketRound)!
 
-    // Pick the court that gives the earliest actual start time:
-    // actual_start = max(court.endTime, notBeforeMs)
-    slots.sort((a, b) => {
-      const startA = Math.max(a.endTime, notBeforeMs)
-      const startB = Math.max(b.endTime, notBeforeMs)
-      if (startA !== startB) return startA - startB
-      return a.endTime - b.endTime
+    // Compute notBeforeMs, categoryDepth and isEarlyRound for every match in this level.
+    // categoryDepth = maxBracketRound - codeBracketRound + 1  (depth=1 → final)
+    // isEarlyRound  = maxBracketRound - codeBracketRound >= 4 (R32 and earlier)
+    const enriched = matchesInRound.map((m) => {
+      let notBeforeMs = 0
+      for (const childId of [m.left_match_id, m.right_match_id]) {
+        if (!childId) continue
+        const childStartMs = startMsById.get(childId)
+        if (childStartMs === undefined) continue
+        const childBr = bracketRoundByMatch.get(childId) ?? null
+        const childDate = toLocalDateStr(new Date(childStartMs))
+        const childDur = getMatchDuration(db, tournamentId, childBr, childDate)
+        notBeforeMs = Math.max(notBeforeMs, childStartMs + childDur * 60 * 1000 + restMinutes * 60 * 1000)
+      }
+      const codeBr = bracketRoundByMatch.get(m.id) ?? 1
+      const maxBr = maxBracketRoundByRound.get(m.round_id) ?? 1
+      const categoryDepth = maxBr - codeBr + 1
+      const isEarlyRound = maxBr - codeBr >= 4
+      return { match: m, notBeforeMs, categoryDepth, isEarlyRound }
     })
 
-    const chosenSlot = slots[0]
-    const startTime = Math.max(chosenSlot.endTime, notBeforeMs)
-    const scheduledDate = toLocalDateStr(new Date(startTime))
-    const duration = getMatchDuration(db, tournamentId, br, scheduledDate)
+    // Build processing groups:
+    //   • Early rounds (R32+): group by round_id so every category forms a contiguous
+    //     block — no interleaving of MS/WS/XD matches at the same stage.
+    //   • Late rounds (R16 and closer): each match is its own group — pure priority order.
+    // Groups are then sorted: categoryDepth DESC → group's min notBeforeMs ASC.
+    type MatchGroup = { categoryDepth: number; minNotBefore: number; items: typeof enriched }
+    const groupMap = new Map<string, typeof enriched>()
+    for (const item of enriched) {
+      const key = item.isEarlyRound
+        ? `${item.categoryDepth}:${item.match.round_id}`
+        : `${item.categoryDepth}:${item.match.id}`
+      if (!groupMap.has(key)) groupMap.set(key, [])
+      groupMap.get(key)!.push(item)
+    }
 
-    db.update(schema.matches)
-      .set({
-        scheduled_at: toLocalISO(new Date(startTime))
+    const matchGroups: MatchGroup[] = []
+    for (const items of groupMap.values()) {
+      items.sort((a, b) => a.notBeforeMs - b.notBeforeMs)
+      matchGroups.push({
+        categoryDepth: items[0].categoryDepth,
+        minNotBefore: Math.min(...items.map((x) => x.notBeforeMs)),
+        items
       })
-      .where(eq(schema.matches.id, m.id))
-      .run()
+    }
+    matchGroups.sort((ga, gb) => {
+      if (gb.categoryDepth !== ga.categoryDepth) return gb.categoryDepth - ga.categoryDepth
+      return ga.minNotBefore - gb.minNotBefore
+    })
 
-    slots[0] = { ...chosenSlot, endTime: startTime + duration * 60 * 1000 }
-    startMsById.set(m.id, startTime)
-  }
+    for (const group of matchGroups) {
+    for (const { match: m, notBeforeMs } of group.items) {
+      const br = bracketRoundByMatch.get(m.id) ?? null
+
+      // Pick the court that gives the earliest actual start time:
+      // actual_start = max(court.endTime, notBeforeMs)
+      slots.sort((a, b) => {
+        const startA = Math.max(a.endTime, notBeforeMs)
+        const startB = Math.max(b.endTime, notBeforeMs)
+        if (startA !== startB) return startA - startB
+        return a.endTime - b.endTime
+      })
+
+      const chosenSlot = slots[0]
+      const startTime = Math.max(chosenSlot.endTime, notBeforeMs)
+      const scheduledDate = toLocalDateStr(new Date(startTime))
+      const duration = getMatchDuration(db, tournamentId, br, scheduledDate)
+
+      db.update(schema.matches)
+        .set({
+          scheduled_at: toLocalISO(new Date(startTime))
+        })
+        .where(eq(schema.matches.id, m.id))
+        .run()
+
+      slots[0] = { ...chosenSlot, endTime: startTime + duration * 60 * 1000 }
+      startMsById.set(m.id, startTime)
+    } // end group.items loop
+    } // end matchGroups loop
+  } // end bracketRound loop
 }
 
 /**
@@ -1040,7 +1097,8 @@ export function buildQueue(
   })
 
   result.sort((a, b) => {
-    if (b.priority !== a.priority) return b.priority - a.priority
+    if (b.categoryDepth !== a.categoryDepth) return b.categoryDepth - a.categoryDepth
+    if (b.crossPending !== a.crossPending) return b.crossPending - a.crossPending
     return new Date(a.effectiveNotBefore).getTime() - new Date(b.effectiveNotBefore).getTime()
   })
 

@@ -134,6 +134,13 @@
       "when": 1776368739194,
       "tag": "0018_thick_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1776368739195,
+      "tag": "0019_event_order",
+      "breakpoints": true
     }
   ]
 }

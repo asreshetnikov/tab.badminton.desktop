@@ -20,6 +20,12 @@
 - Tailwind CSS v4 + shadcn/ui
 - i18n: `react-i18next`, переводы в `src/renderer/src/locales/en/common.json`
 - Тесты: Vitest + in-memory SQLite через `src/main/db/test-helpers.ts`
+  - `npm test` — пересобирает `better-sqlite3` под системный Node, затем запускает все тесты
+  - `npm run test:watch` — то же, но в watch-режиме
+  - `npm run dev` — `predev` автоматически пересобирает модуль обратно под Electron
+  - Тесты покрывают: `round-robin.service`, `playoff.service`, `schedule.service`, `scheduler.service`
+  - `scheduler.service.test.ts` содержит тесты Phase 2 (READY-матчи) и Phase 3 (preliminary bracket),
+    включая проверку порядка по `categoryDepth` и непрерывность блоков ранних раундов (R32+)
 
 ## Прогресс по плану
 
