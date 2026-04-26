@@ -138,12 +138,21 @@ export function generateBracket(
       .where(eq(schema.matches.id, matchId))
       .run()
 
-    // Propagate the bye winner into the correct team slot of the parent match
+    // Propagate the bye winner into the correct team slot of the parent match.
+    // If filling this slot completes both team slots, mark the parent as ready.
     if (winnerId && levels[1]) {
       const parentId = levels[1][Math.floor(i / 2)]
       const isLeftSlot = i % 2 === 0
+      const parent = db
+        .select({ team1_id: schema.matches.team1_id, team2_id: schema.matches.team2_id })
+        .from(schema.matches)
+        .where(eq(schema.matches.id, parentId))
+        .get()
+      const newTeam1 = isLeftSlot ? winnerId : parent?.team1_id ?? null
+      const newTeam2 = isLeftSlot ? parent?.team2_id ?? null : winnerId
+      const parentStatus = newTeam1 && newTeam2 ? 'ready' : 'scheduled'
       db.update(schema.matches)
-        .set(isLeftSlot ? { team1_id: winnerId } : { team2_id: winnerId })
+        .set(isLeftSlot ? { team1_id: winnerId, status: parentStatus } : { team2_id: winnerId, status: parentStatus })
         .where(eq(schema.matches.id, parentId))
         .run()
     }
