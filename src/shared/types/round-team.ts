@@ -4,6 +4,8 @@ export interface RoundTeam {
   team_id: string
   status: 'active' | 'withdrawn'
   seed: number | null
+  seed_lo: number | null
+  seed_hi: number | null
   checked_in: boolean
 }
 

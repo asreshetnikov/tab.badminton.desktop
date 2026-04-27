@@ -38,7 +38,7 @@ export interface Match {
 }
 
 export interface MatchWithTeams extends Match {
-  team1: { id: string; name: string } | null
-  team2: { id: string; name: string } | null
+  team1: { id: string; name: string; seed: number | null; seed_lo: number | null; seed_hi: number | null } | null
+  team2: { id: string; name: string; seed: number | null; seed_lo: number | null; seed_hi: number | null } | null
   sets: MatchSet[]
 }

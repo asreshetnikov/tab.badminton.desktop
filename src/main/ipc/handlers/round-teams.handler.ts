@@ -69,4 +69,7 @@ export function registerRoundTeamsHandler(): void {
   ipcMain.handle('roundTeams:listTableByRound', (_e, roundId: string) =>
     new RoundTeamRepository(getDb()).listTableWithTeamsByRound(roundId)
   )
+  ipcMain.handle('roundTeams:draw', (_e, roundId: string) =>
+    new RoundTeamRepository(getDb()).resolveDraw(roundId)
+  )
 }

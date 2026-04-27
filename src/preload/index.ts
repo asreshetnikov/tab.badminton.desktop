@@ -41,6 +41,7 @@ const api: AppAPI = {
     add: (tournamentId, eventId, teamId) => ipcRenderer.invoke('tournamentTeams:add', tournamentId, eventId, teamId),
     addMany: (tournamentId, eventId, teamIds) => ipcRenderer.invoke('tournamentTeams:addMany', tournamentId, eventId, teamIds),
     listByTournament: (tournamentId) => ipcRenderer.invoke('tournamentTeams:listByTournament', tournamentId),
+    setSeed: (tournamentTeamId, lo, hi) => ipcRenderer.invoke('tournamentTeams:setSeed', tournamentTeamId, lo, hi),
     remove: (id) => ipcRenderer.invoke('tournamentTeams:remove', id)
   },
 
@@ -64,6 +65,7 @@ const api: AppAPI = {
     addMany: (roundId, teamIds) => ipcRenderer.invoke('roundTeams:addMany', roundId, teamIds),
     listByRound: (roundId) => ipcRenderer.invoke('roundTeams:listByRound', roundId),
     listTableByRound: (roundId) => ipcRenderer.invoke('roundTeams:listTableByRound', roundId),
+    draw: (roundId) => ipcRenderer.invoke('roundTeams:draw', roundId),
     remove: (id) => ipcRenderer.invoke('roundTeams:remove', id)
   },
 

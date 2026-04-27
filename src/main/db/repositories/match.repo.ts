@@ -1,4 +1,4 @@
-import { eq, asc } from 'drizzle-orm'
+import { eq, asc, and } from 'drizzle-orm'
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { randomUUID } from 'crypto'
 import * as schema from '../schema'
@@ -87,11 +87,39 @@ export class MatchRepository {
       .orderBy(asc(schema.match_sets.order))
       .all()
 
+    const team1Seed = match.team1_id ? this.getRoundTeamSeed(match.round_id, match.team1_id) : emptySeed()
+    const team2Seed = match.team2_id ? this.getRoundTeamSeed(match.round_id, match.team2_id) : emptySeed()
+
     return {
       ...match,
-      team1: team1 ? { id: team1.id, name: team1.name } : null,
-      team2: team2 ? { id: team2.id, name: team2.name } : null,
+      team1: team1 ? { id: team1.id, name: team1.name, ...team1Seed } : null,
+      team2: team2 ? { id: team2.id, name: team2.name, ...team2Seed } : null,
       sets
     }
   }
+
+  private getRoundTeamSeed(roundId: string, teamId: string) {
+    const row = this.db
+      .select({
+        seed: schema.round_teams.seed,
+        seed_lo: schema.tournament_teams.seed_lo,
+        seed_hi: schema.tournament_teams.seed_hi
+      })
+      .from(schema.round_teams)
+      .innerJoin(schema.rounds, eq(schema.round_teams.round_id, schema.rounds.id))
+      .leftJoin(
+        schema.tournament_teams,
+        and(
+          eq(schema.tournament_teams.event_id, schema.rounds.event_id),
+          eq(schema.tournament_teams.team_id, schema.round_teams.team_id)
+        )
+      )
+      .where(and(eq(schema.round_teams.round_id, roundId), eq(schema.round_teams.team_id, teamId)))
+      .get()
+    return row ?? emptySeed()
+  }
+}
+
+function emptySeed(): { seed: number | null; seed_lo: number | null; seed_hi: number | null } {
+  return { seed: null, seed_lo: null, seed_hi: null }
 }

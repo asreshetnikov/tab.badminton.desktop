@@ -90,6 +90,7 @@ export interface AppAPI {
     add(tournamentId: string, eventId: string, teamId: string): Promise<TournamentTeamWithTeam>
     addMany(tournamentId: string, eventId: string, teamIds: string[]): Promise<TournamentTeamWithTeam[]>
     listByTournament(tournamentId: string): Promise<TournamentTeamWithTeam[]>
+    setSeed(tournamentTeamId: string, lo: number | null, hi: number | null): Promise<TournamentTeamWithTeam>
     remove(id: string): Promise<void>
   }
 
@@ -120,6 +121,7 @@ export interface AppAPI {
     addMany(roundId: string, teamIds: string[]): Promise<RoundTeamWithTeam[]>
     listByRound(roundId: string): Promise<RoundTeamWithTeam[]>
     listTableByRound(roundId: string): Promise<RoundTableRowWithTeam[]>
+    draw(roundId: string): Promise<RoundTeamWithTeam[]>
     remove(id: string): Promise<void>
   }
 

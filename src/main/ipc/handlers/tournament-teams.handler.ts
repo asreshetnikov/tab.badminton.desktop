@@ -12,6 +12,9 @@ export function registerTournamentTeamsHandler(): void {
   ipcMain.handle('tournamentTeams:listByTournament', (_e, tournamentId: string) =>
     new TournamentTeamRepository(getDb()).listByTournament(tournamentId)
   )
+  ipcMain.handle('tournamentTeams:setSeed', (_e, tournamentTeamId: string, lo: number | null, hi: number | null) =>
+    new TournamentTeamRepository(getDb()).setSeed(tournamentTeamId, lo, hi)
+  )
   ipcMain.handle('tournamentTeams:remove', (_e, id: string) =>
     new TournamentTeamRepository(getDb()).remove(id)
   )

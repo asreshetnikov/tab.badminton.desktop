@@ -178,6 +178,7 @@ function MatchCard({ match, onClick }: { match: MatchWithTeams; onClick: () => v
         >
           {match.team1?.name ?? '—'}
         </span>
+        {match.team1 && <SeedBadge team={match.team1} />}
         {done && (
           <span className={cn('shrink-0 font-mono', team1Wins ? 'font-bold' : 'text-muted-foreground')}>
             {match.s1 ?? 0}
@@ -200,6 +201,7 @@ function MatchCard({ match, onClick }: { match: MatchWithTeams; onClick: () => v
         >
           {match.team2?.name ?? '—'}
         </span>
+        {match.team2 && <SeedBadge team={match.team2} />}
         {done && (
           <span className={cn('shrink-0 font-mono', team2Wins ? 'font-bold' : 'text-muted-foreground')}>
             {match.s2 ?? 0}
@@ -208,6 +210,28 @@ function MatchCard({ match, onClick }: { match: MatchWithTeams; onClick: () => v
       </div>
     </div>
   )
+}
+
+function SeedBadge({
+  team
+}: {
+  team: { seed: number | null; seed_lo: number | null; seed_hi: number | null }
+}) {
+  const declared = formatTeamSeed(team)
+  if (!declared) return null
+  const title = team.seed !== null && team.seed_hi !== null ? `${declared}, draw ${team.seed}` : declared
+  return (
+    <span title={title} className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+      ({declared})
+    </span>
+  )
+}
+
+function formatTeamSeed(team: { seed: number | null; seed_lo: number | null; seed_hi: number | null }): string {
+  if (team.seed_lo !== null && team.seed_hi !== null) return `${team.seed_lo}/${team.seed_hi}`
+  if (team.seed_lo !== null) return String(team.seed_lo)
+  if (team.seed !== null) return String(team.seed)
+  return ''
 }
 
 // ─── PlayoffBracket screen ────────────────────────────────────────────────────

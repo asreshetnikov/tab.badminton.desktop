@@ -75,7 +75,9 @@ export const tournament_teams = sqliteTable('tournament_teams', {
     .references(() => events.id, { onDelete: 'cascade' }),
   team_id: text('team_id')
     .notNull()
-    .references(() => teams.id, { onDelete: 'cascade' })
+    .references(() => teams.id, { onDelete: 'cascade' }),
+  seed_lo: integer('seed_lo'),
+  seed_hi: integer('seed_hi')
 })
 
 export const team_players = sqliteTable('team_players', {
@@ -193,4 +195,3 @@ export const tournament_day_settings = sqliteTable('tournament_day_settings', {
   start_time: text('start_time').notNull(),
   match_duration: integer('match_duration').notNull()
 })
-

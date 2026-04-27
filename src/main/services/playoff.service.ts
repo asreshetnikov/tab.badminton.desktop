@@ -74,6 +74,9 @@ export function generateBracket(
 
   const n = roundTeams.length
   if (n < 2) throw new Error('Need at least 2 teams to generate playoff bracket')
+  if (roundTeams.some((rt) => rt.seed === null)) {
+    throw new Error('UNRESOLVED_SEEDINGS')
+  }
 
   const size = nextPowerOf2(n)
   const numRounds = Math.log2(size) // e.g. 8 → 3

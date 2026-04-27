@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Swords, RefreshCw, Pencil, Check, X, List, Network } from 'lucide-react'
+import { ChevronLeft, Plus, Swords, RefreshCw, Pencil, Check, X, List, Network, Shuffle } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import { Input } from '@renderer/components/ui/input'
 import {
@@ -110,11 +110,13 @@ function BracketMatchCard({ match, onClick }: { match: MatchWithTeams; onClick: 
     >
       <div className={cn('flex flex-1 items-center gap-1 px-2', team1Wins && 'bg-green-50 dark:bg-green-950/20')}>
         <span className={cn('min-w-0 flex-1 truncate', team1Wins ? 'font-semibold' : 'text-muted-foreground', !match.team1 && 'italic opacity-50')}>{match.team1?.name ?? '—'}</span>
+        {match.team1 && <SeedBadge team={match.team1} />}
         {done && <span className={cn('shrink-0 font-mono', team1Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s1 ?? 0}</span>}
       </div>
       <div className="border-t border-border" />
       <div className={cn('flex flex-1 items-center gap-1 px-2', team2Wins && 'bg-green-50 dark:bg-green-950/20')}>
         <span className={cn('min-w-0 flex-1 truncate', team2Wins ? 'font-semibold' : 'text-muted-foreground', !match.team2 && 'italic opacity-50')}>{match.team2?.name ?? '—'}</span>
+        {match.team2 && <SeedBadge team={match.team2} />}
         {done && <span className={cn('shrink-0 font-mono', team2Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s2 ?? 0}</span>}
       </div>
     </div>
@@ -144,6 +146,7 @@ export function GroupsView() {
   const [addTeamsOpen, setAddTeamsOpen] = useState(false)
   const [selectedTeamIds, setSelectedTeamIds] = useState<Set<string>>(new Set())
   const [isAddingTeams, setIsAddingTeams] = useState(false)
+  const [isDrawingSeeds, setIsDrawingSeeds] = useState(false)
 
   // View mode (list | bracket) — bracket only for playoff
   const [viewMode, setViewMode] = useState<'list' | 'bracket'>('list')
@@ -369,10 +372,22 @@ export function GroupsView() {
     setIsGeneratingBracket(true)
     try {
       await api.matches.deleteByRound(rid)
-      const generated = await api.matches.generatePlayoff(rid)
-      setMatches(generated)
+      setMatches([])
     } finally {
       setIsGeneratingBracket(false)
+    }
+  }
+
+  async function handleDrawSeedings() {
+    if (!rid) return
+    setIsDrawingSeeds(true)
+    try {
+      const updated = await api.roundTeams.draw(rid)
+      setRoundTeams(updated)
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    } finally {
+      setIsDrawingSeeds(false)
     }
   }
 
@@ -383,6 +398,8 @@ export function GroupsView() {
   }
 
   const isRoundRobin = round?.type === 'round_robin'
+  const hasMatches = matches.length > 0
+  const hasUnresolvedSeeds = !isRoundRobin && roundTeams.some((rt) => rt.seed === null)
 
   // Group matches by tour (round_robin)
   const byTour = matches.reduce<Record<number, MatchWithTeams[]>>((acc, m) => {
@@ -466,7 +483,14 @@ export function GroupsView() {
             )
           ) : (
             matches.length === 0 ? (
-              <Button size="sm" variant="outline" className="h-7 text-xs" disabled={roundTeams.length < 2 || isGeneratingBracket} onClick={handleGenerateBracket}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                disabled={roundTeams.length < 2 || isGeneratingBracket || hasUnresolvedSeeds}
+                title={hasUnresolvedSeeds ? t('rounds.drawFirst') : undefined}
+                onClick={handleGenerateBracket}
+              >
                 <Swords className="mr-1 h-3 w-3" />
                 {t('rounds.generateBracket')}
               </Button>
@@ -535,6 +559,47 @@ export function GroupsView() {
 
           {/* Matches */}
           <section>
+            <div className="mb-4 flex items-center gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('rounds.participants')}
+              </h2>
+              <Button size="sm" variant="outline" className="ml-auto h-7 text-xs" onClick={() => setAddTeamsOpen(true)} disabled={hasMatches}>
+                <Plus className="mr-1 h-3 w-3" />
+                {t('rounds.addTeams')}
+              </Button>
+              {!isRoundRobin && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={handleDrawSeedings}
+                  disabled={hasMatches || roundTeams.length < 2 || isDrawingSeeds}
+                  title={hasMatches ? t('rounds.regenerateToEditSeeds') : undefined}
+                >
+                  <Shuffle className="mr-1 h-3 w-3" />
+                  {t('rounds.drawSeedings')}
+                </Button>
+              )}
+            </div>
+            {roundTeams.length === 0 ? (
+              <p className="mb-8 text-sm text-muted-foreground">{t('rounds.noTeams')}</p>
+            ) : (
+              <div className="mb-8 divide-y rounded-md border">
+                {roundTeams.map((rt) => (
+                  <div key={rt.id} className="flex items-center gap-3 px-3 py-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate font-medium">{rt.team.name}</span>
+                    {!isRoundRobin && (
+                      <span className="w-32 shrink-0 text-right text-xs text-muted-foreground">
+                        {formatDeclaredSeed(rt) || t('rounds.noSeed')}
+                        {' · '}
+                        {rt.seed !== null ? t('rounds.resolvedSeed', { n: rt.seed }) : t('rounds.unresolvedSeed')}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {matches.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('rounds.noMatches')}</p>
             ) : isRoundRobin ? (
@@ -846,7 +911,9 @@ function MatchRow({
       <span className="min-w-0 flex-1 truncate text-right font-medium">
         {match.team1?.name ?? '—'}
       </span>
+      {match.team1 && <SeedBadge team={match.team1} />}
       <MatchScore match={match} />
+      {match.team2 && <SeedBadge team={match.team2} />}
       <span className="min-w-0 flex-1 truncate font-medium">
         {match.team2?.name ?? '—'}
       </span>
@@ -863,6 +930,21 @@ function MatchRow({
         {t(`matches.status.${match.status}`)}
       </span>
     </div>
+  )
+}
+
+function SeedBadge({
+  team
+}: {
+  team: { seed: number | null; seed_lo: number | null; seed_hi: number | null }
+}) {
+  const declared = formatTeamSeed(team)
+  if (!declared) return null
+  const title = team.seed !== null && team.seed_hi !== null ? `${declared}, draw ${team.seed}` : declared
+  return (
+    <span title={title} className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
+      ({declared})
+    </span>
   )
 }
 
@@ -912,4 +994,17 @@ function sortStandings(rows: RoundTableRowWithTeam[]): RoundTableRowWithTeam[] {
     if (pdB !== pdA) return pdB - pdA
     return a.team.name.localeCompare(b.team.name)
   })
+}
+
+function formatDeclaredSeed(rt: Pick<RoundTeamWithTeam, 'seed_lo' | 'seed_hi'>): string {
+  if (rt.seed_lo === null) return ''
+  if (rt.seed_hi === null) return String(rt.seed_lo)
+  return `${rt.seed_lo}/${rt.seed_hi}`
+}
+
+function formatTeamSeed(team: { seed: number | null; seed_lo: number | null; seed_hi: number | null }): string {
+  if (team.seed_lo !== null && team.seed_hi !== null) return `${team.seed_lo}/${team.seed_hi}`
+  if (team.seed_lo !== null) return String(team.seed_lo)
+  if (team.seed !== null) return String(team.seed)
+  return ''
 }

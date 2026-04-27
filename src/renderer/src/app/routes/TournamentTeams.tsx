@@ -23,6 +23,8 @@ import type {
 } from '@shared/types/ipc'
 
 type PlayerGender = 'M' | 'F'
+type SeedEntryMode = 'exact' | 'group'
+type SeedMode = 'none' | SeedEntryMode
 
 /** Gender requirement for each doubles category */
 const DOUBLES_GENDERS: Record<string, [PlayerGender, PlayerGender] | null> = {
@@ -45,6 +47,7 @@ export function TournamentTeams() {
   const [isLoading, setIsLoading] = useState(true)
 
   const [activeEventId, setActiveEventId] = useState<string | null>(null)
+  const [seedEntryMode, setSeedEntryMode] = useState<SeedEntryMode>('exact')
 
   // Bulk-add dialog (existing teams)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -171,7 +174,8 @@ export function TournamentTeams() {
   function toggle(teamId: string) {
     setSelected((prev) => {
       const next = new Set(prev)
-      next.has(teamId) ? next.delete(teamId) : next.add(teamId)
+      if (next.has(teamId)) next.delete(teamId)
+      else next.add(teamId)
       return next
     })
   }
@@ -203,6 +207,46 @@ export function TournamentTeams() {
   async function handleRemove(entryId: string) {
     await api.tournamentTeams.remove(entryId)
     setEntries((prev) => prev.filter((e) => e.id !== entryId))
+  }
+
+  async function setDeclaredSeed(entryId: string, lo: number | null, hi: number | null) {
+    try {
+      const updated = await api.tournamentTeams.setSeed(entryId, lo, hi)
+      setEntries((prev) => prev.map((entry) => (entry.id === updated.id ? updated : entry)))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  async function handleSeedEntryModeChange(mode: SeedEntryMode) {
+    if (mode === seedEntryMode) return
+    setSeedEntryMode(mode)
+
+    const seededEntries = activeEntries.filter((entry) => entry.seed_lo !== null)
+    if (seededEntries.length === 0) return
+
+    try {
+      const updated = await Promise.all(
+        seededEntries.map((entry) => api.tournamentTeams.setSeed(entry.id, null, null))
+      )
+      const updatedById = new Map(updated.map((entry) => [entry.id, entry]))
+      setEntries((prev) => prev.map((entry) => updatedById.get(entry.id) ?? entry))
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  function handleSeedValueChange(entry: TournamentTeamWithTeam, value: string) {
+    if (value === '') {
+      void setDeclaredSeed(entry.id, null, null)
+      return
+    }
+    if (seedEntryMode === 'exact') {
+      void setDeclaredSeed(entry.id, Number(value), null)
+      return
+    }
+    const group = parseGroupSeedValue(value)
+    if (group) void setDeclaredSeed(entry.id, group.lo, group.hi)
   }
 
   async function handleCreatePair() {
@@ -408,33 +452,71 @@ export function TournamentTeams() {
               )}
             </div>
           ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs font-medium text-muted-foreground">
-                  <th className="pb-2 pr-4 font-medium">{t('tournamentForm.name')}</th>
-                  <th className="pb-2 pr-4 font-medium">{t('tournamentTeams.players')}</th>
-                  <th className="pb-2 w-16" />
-                </tr>
-              </thead>
-              <tbody>
-                {activeEntries.map((entry) => (
-                  <tr key={entry.id} className="group border-b">
-                    <td className="py-2 pr-4 font-medium">{entry.team.name}</td>
-                    <td className="py-2 pr-4 text-muted-foreground">{playerNames(entry.team)}</td>
-                    <td className="py-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 text-xs text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
-                        onClick={() => handleRemove(entry.id)}
-                      >
-                        {t('tournamentTeams.remove')}
-                      </Button>
-                    </td>
+            <>
+              <div className="mb-3 flex items-center justify-end gap-2">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {t('tournamentTeams.seedEntryMode')}
+                </span>
+                <div className="flex overflow-hidden rounded-md border">
+                  {(['exact', 'group'] as SeedEntryMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => void handleSeedEntryModeChange(mode)}
+                      className={cn(
+                        'h-7 border-l px-3 text-xs first:border-l-0',
+                        seedEntryMode === mode
+                          ? 'bg-muted font-medium text-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      )}
+                    >
+                      {t(`rounds.seedMode.${mode}`)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs font-medium text-muted-foreground">
+                    <th className="pb-2 pr-4 font-medium">{t('tournamentForm.name')}</th>
+                    <th className="pb-2 pr-4 font-medium">{t('tournamentTeams.players')}</th>
+                    <th className="pb-2 pr-4 font-medium">{t('tournamentTeams.seed')}</th>
+                    <th className="pb-2 w-16" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {activeEntries.map((entry) => (
+                    <tr key={entry.id} className="group border-b">
+                      <td className="py-2 pr-4 font-medium">{entry.team.name}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">{playerNames(entry.team)}</td>
+                      <td className="py-2 pr-4">
+                        <select
+                          value={getSeedSelectValue(entry, seedEntryMode)}
+                          onChange={(e) => handleSeedValueChange(entry, e.target.value)}
+                          className="h-7 w-28 rounded-md border border-input bg-background px-2 text-xs"
+                        >
+                          {buildSeedSelectOptions(activeEntries, entry, seedEntryMode, t).map((option) => (
+                            <option key={option.value || 'none'} value={option.value} disabled={option.disabled}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="py-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs text-muted-foreground opacity-0 hover:text-destructive group-hover:opacity-100"
+                          onClick={() => handleRemove(entry.id)}
+                        >
+                          {t('tournamentTeams.remove')}
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
           )}
         </>
       )}
@@ -587,4 +669,145 @@ export function TournamentTeams() {
       </Dialog>
     </div>
   )
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type TFunction = (key: string, opts?: any) => string
+
+function formatDeclaredSeed(entry: Pick<TournamentTeamWithTeam, 'seed_lo' | 'seed_hi'>): string {
+  if (entry.seed_lo === null) return ''
+  if (entry.seed_hi === null) return String(entry.seed_lo)
+  return `${entry.seed_lo}/${entry.seed_hi}`
+}
+
+function getSeedMode(entry: Pick<TournamentTeamWithTeam, 'seed_lo' | 'seed_hi'>): SeedMode {
+  if (entry.seed_lo === null) return 'none'
+  if (entry.seed_hi === null) return 'exact'
+  return 'group'
+}
+
+function getSeedSelectValue(entry: TournamentTeamWithTeam, entryMode: SeedEntryMode): string {
+  return getSeedMode(entry) === entryMode ? formatDeclaredSeed(entry) : ''
+}
+
+function buildSeedSelectOptions(
+  entries: TournamentTeamWithTeam[],
+  entry: TournamentTeamWithTeam,
+  entryMode: SeedEntryMode,
+  t: TFunction
+) {
+  const modeOptions =
+    entryMode === 'exact'
+      ? buildExactSeedOptions(entries, entry.id)
+      : buildGroupSeedOptions(entries, entry.id)
+  return [
+    { value: '', label: t('rounds.noSeed'), disabled: false },
+    ...modeOptions
+  ]
+}
+
+function buildExactSeedOptions(entries: TournamentTeamWithTeam[], currentId: string) {
+  return range(1, getBracketSeedLimit(entries)).map((seed) => ({
+    value: String(seed),
+    label: String(seed),
+    disabled:
+      isExactSeedTaken(entries, currentId, seed) ||
+      wouldBreakGroupCapacity(entries, currentId, seed)
+  }))
+}
+
+function buildGroupSeedOptions(entries: TournamentTeamWithTeam[], currentId: string) {
+  const limit = getBracketSeedLimit(entries)
+  const options: Array<{ lo: number; hi: number }> = []
+  for (let hi = 2; hi <= limit; hi *= 2) {
+    options.push({ lo: hi === 2 ? 1 : hi / 2 + 1, hi })
+  }
+  return options.map((option) => ({
+    value: `${option.lo}/${option.hi}`,
+    label: `${option.lo}/${option.hi}`,
+    disabled: !isGroupSeedAvailable(entries, currentId, option.lo, option.hi)
+  }))
+}
+
+function parseGroupSeedValue(value: string): { lo: number; hi: number } | null {
+  const [lo, hi] = value.split('/').map(Number)
+  if (!lo || !hi) return null
+  return { lo, hi }
+}
+
+function getBracketSeedLimit(entries: TournamentTeamWithTeam[]): number {
+  return nextPowerOfTwo(Math.max(2, entries.length))
+}
+
+function nextPowerOfTwo(value: number): number {
+  let result = 1
+  while (result < value) result *= 2
+  return result
+}
+
+function isExactSeedTaken(
+  entries: TournamentTeamWithTeam[],
+  currentId: string,
+  seed: number
+): boolean {
+  return entries.some(
+    (entry) => entry.id !== currentId && entry.seed_lo === seed && entry.seed_hi === null
+  )
+}
+
+function isGroupSeedAvailable(
+  entries: TournamentTeamWithTeam[],
+  currentId: string,
+  lo: number,
+  hi: number
+): boolean {
+  const exactSeeds = new Set(
+    entries
+      .filter((entry) => entry.id !== currentId && entry.seed_lo !== null && entry.seed_hi === null)
+      .map((entry) => entry.seed_lo!)
+  )
+  const availableSlots = range(lo, hi).filter((seed) => !exactSeeds.has(seed)).length
+  const groupSize = entries.filter(
+    (entry) => entry.seed_lo === lo && entry.seed_hi === hi && entry.id !== currentId
+  ).length
+  const currentIsGroup = entries.some(
+    (entry) => entry.id === currentId && entry.seed_lo === lo && entry.seed_hi === hi
+  )
+  return groupSize + (currentIsGroup ? 1 : 0) <= availableSlots && groupSize < availableSlots
+}
+
+function wouldBreakGroupCapacity(
+  entries: TournamentTeamWithTeam[],
+  currentId: string,
+  seed: number
+): boolean {
+  const groups = new Map<string, { lo: number; hi: number }>()
+  for (const entry of entries) {
+    if (entry.id !== currentId && entry.seed_lo !== null && entry.seed_hi !== null) {
+      groups.set(`${entry.seed_lo}/${entry.seed_hi}`, { lo: entry.seed_lo, hi: entry.seed_hi })
+    }
+  }
+
+  const exactSeeds = new Set(
+    entries
+      .filter((entry) => entry.id !== currentId && entry.seed_lo !== null && entry.seed_hi === null)
+      .map((entry) => entry.seed_lo!)
+  )
+  exactSeeds.add(seed)
+
+  for (const group of groups.values()) {
+    if (seed < group.lo || seed > group.hi) continue
+    const slots = range(group.lo, group.hi).filter((item) => !exactSeeds.has(item)).length
+    const groupSize = entries.filter(
+      (entry) => entry.id !== currentId && entry.seed_lo === group.lo && entry.seed_hi === group.hi
+    ).length
+    if (groupSize > slots) return true
+  }
+  return false
+}
+
+function range(from: number, to: number): number[] {
+  const result: number[] = []
+  for (let i = from; i <= to; i++) result.push(i)
+  return result
 }
