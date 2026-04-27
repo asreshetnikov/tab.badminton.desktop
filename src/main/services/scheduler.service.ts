@@ -309,15 +309,6 @@ export function computeNotBeforeSoft(
       return involvedTeams.some((tid) => allTeamIds.includes(tid))
     })
 
-  // Determine the tournament start date for fallback
-  const tournament = db
-    .select({ date_start: schema.tournaments.date_start })
-    .from(schema.tournaments)
-    .where(eq(schema.tournaments.id, tournamentId))
-    .get()
-
-  const defaultDate = tournament?.date_start ?? toLocalDateStr(new Date())
-
   // Compute last_end per player, then take max(last_end + rest) across all players
   let maxNotBefore: number | null = null
 
@@ -543,19 +534,19 @@ export function autoSchedule(
   // Phase 1: schedule round-robin rounds tour by tour
   const rrRounds = allRounds.filter((r) => r.type === 'round_robin')
   if (rrRounds.length > 0) {
-    courtSlots = _scheduleRoundRobin(db, tournamentId, rrRounds, defaultDate, courtSlots)
+    courtSlots = _scheduleRoundRobin(db, tournamentId, rrRounds, courtSlots)
   }
 
   // Phase 2: smart-schedule READY playoff matches with priority queue + court assignment
   const playoffRounds = allRounds.filter((r) => r.type === 'playoff')
   if (playoffRounds.length > 0) {
-    courtSlots = _runScheduler(db, tournamentId, courts, restMinutes, defaultDate, playoffRounds, courtSlots)
+    courtSlots = _runScheduler(db, tournamentId, restMinutes, defaultDate, playoffRounds, courtSlots)
   }
 
   // Phase 3: pre-schedule non-READY playoff bracket matches (players not yet known).
   // Uses per-court end times so courts freed earlier don't sit idle.
   if (playoffRounds.length > 0) {
-    _preScheduleBracket(db, tournamentId, playoffRounds, courtSlots, defaultDate, restMinutes)
+    _preScheduleBracket(db, tournamentId, playoffRounds, courtSlots, restMinutes)
   }
 }
 
@@ -574,7 +565,6 @@ function _scheduleRoundRobin(
   db: BetterSQLite3Database<typeof schema>,
   tournamentId: string,
   rrRounds: Array<{ id: string }>,
-  defaultDate: string,
   initialCourtSlots: CourtSlot[]
 ): CourtSlot[] {
   // All ready (both teams known) RR matches
@@ -638,7 +628,6 @@ function _scheduleRoundRobin(
 function _runScheduler(
   db: BetterSQLite3Database<typeof schema>,
   tournamentId: string,
-  courts: Array<{ id: string; name: string }>,
   restMinutes: number,
   defaultDate: string,
   playoffRounds: Array<{ id: string }>,
@@ -856,7 +845,6 @@ function _preScheduleBracket(
   tournamentId: string,
   playoffRounds: Array<{ id: string }>,
   initialCourtSlots: CourtSlot[],
-  defaultDate: string,
   restMinutes: number
 ): void {
   // Fresh query so we see Phase 2's scheduled_at assignments

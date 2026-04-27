@@ -19,6 +19,7 @@ export function registerEventsHandler(): void {
   ipcMain.handle('events:delete', (_e, id: string) => {
     try {
       new EventRepository(getDb()).delete(id)
+      return
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       if (msg === 'EVENT_HAS_ENTRIES' || msg === 'EVENT_HAS_ROUNDS') {
