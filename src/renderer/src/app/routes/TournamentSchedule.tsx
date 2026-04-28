@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2, List, LayoutGrid, RefreshCw } from 'lucide-react'
+import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2, List, LayoutGrid, RefreshCw, GripVertical } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -73,9 +73,16 @@ export function TournamentSchedule() {
   const [isRegenerating, setIsRegenerating] = useState(false)
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false)
 
-  // Drag-and-drop
+  // Drag-and-drop (queue → court)
   const [draggedMatchId, setDraggedMatchId] = useState<string | null>(null)
   const [dragOverCourtId, setDragOverCourtId] = useState<string | null>(null)
+
+  // Queue reorder drag-and-drop
+  const [queueSelectedIds, setQueueSelectedIds] = useState<Set<string>>(new Set())
+  const [queueLastClickId, setQueueLastClickId] = useState<string | null>(null)
+  const [queueDragItemId, setQueueDragItemId] = useState<string | null>(null)
+  const [queueInsertIdx, setQueueInsertIdx] = useState<number | null>(null)
+  const [queueReorderError, setQueueReorderError] = useState<string | null>(null)
 
   // View mode
   const [viewMode, setViewMode] = useState<'list' | 'timeline'>('list')
@@ -206,21 +213,128 @@ export function TournamentSchedule() {
   )
 
   // Left column: scheduled/ready — waiting to be called to court
-  // Sorted by scheduledAt asc (earliest slot first); matches without a slot go to the bottom
+  // Sorted by queue_position (primary), then scheduledAt, then priority
   const filteredUnscheduled = useMemo(() => {
     const filtered = allMatches.filter(
       (m) => (m.status === 'scheduled' || m.status === 'ready') && matchFilter(m)
     )
     return filtered.sort((a, b) => {
+      // Primary sort: queue_position (null → end)
+      const qa = a.queuePosition
+      const qb = b.queuePosition
+      if (qa !== null && qb !== null) return qa - qb
+      if (qa !== null) return -1
+      if (qb !== null) return 1
+      // Fallback for matches without a position: scheduledAt then priority
       const ta = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Infinity
       const tb = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Infinity
       if (ta !== tb) return ta - tb
-      // tie-break: priority desc
       const pa = priorityByMatch.get(a.id) ?? -1
       const pb = priorityByMatch.get(b.id) ?? -1
       return pb - pa
     })
   }, [allMatches, categoryFilter, roundFilter, priorityByMatch])
+
+  // ─── Bracket order validation ─────────────────────────────────────────────
+
+  /**
+   * Checks that for every playoff match in the proposed order, both of its
+   * prerequisite matches (left_match_id / right_match_id) appear before it.
+   * Returns a human-readable description of the first violation found, or null.
+   */
+  function checkBracketOrder(proposed: MatchSlot[]): string | null {
+    const posById = new Map(proposed.map((m, i) => [m.id, i]))
+    for (const m of proposed) {
+      for (const prereqId of [m.leftMatchId, m.rightMatchId]) {
+        if (!prereqId) continue
+        const prereqPos = posById.get(prereqId)
+        if (prereqPos === undefined) continue // not in queue (done or filtered out)
+        if (prereqPos > posById.get(m.id)!) {
+          const prereq = proposed[prereqPos]
+          const mName = m.team1Name && m.team2Name
+            ? `${m.team1Name} – ${m.team2Name}`
+            : t('schedule.tbd')
+          const prereqName = prereq.team1Name && prereq.team2Name
+            ? `${prereq.team1Name} – ${prereq.team2Name}`
+            : t('schedule.bracketMatchTbd')
+          return t('schedule.queueBracketConflict', { match: mName, prereq: prereqName })
+        }
+      }
+    }
+    return null
+  }
+
+  /**
+   * Build the proposed newOrder for a given insertIdx.
+   * Shared by the real-time drag validation and the final drop handler.
+   */
+  function computeNewOrder(insertIdx: number, dragItemId: string, selectedIds: Set<string>): MatchSlot[] {
+    const items = filteredUnscheduled
+    const effectiveSelectedIds = selectedIds.has(dragItemId) ? selectedIds : new Set([dragItemId])
+    const selectedInOrder = items.filter((m) => effectiveSelectedIds.has(m.id))
+    const notSelected = items.filter((m) => !effectiveSelectedIds.has(m.id))
+    const nsIdx = items.slice(0, insertIdx).filter((m) => !effectiveSelectedIds.has(m.id)).length
+    return [...notSelected.slice(0, nsIdx), ...selectedInOrder, ...notSelected.slice(nsIdx)]
+  }
+
+  /**
+   * Checks that the scheduled time of each moved match does not violate the
+   * time constraint imposed by its unfinished bracket prerequisites:
+   *   match.scheduledAt >= prereq.scheduledAt + matchDuration + restMinutes
+   *
+   * This is independent of queue position — it checks absolute scheduled times.
+   * Returns a human-readable error string or null.
+   */
+  function checkTimeConstraints(movedMatchIds: Set<string>): string | null {
+    const restMins = tournament?.rest_minutes ?? 30
+    for (const matchId of movedMatchIds) {
+      const m = allMatches.find((x) => x.id === matchId)
+      if (!m?.scheduledAt) continue
+      for (const prereqId of [m.leftMatchId, m.rightMatchId]) {
+        if (!prereqId) continue
+        const prereq = allMatches.find((x) => x.id === prereqId)
+        if (!prereq?.scheduledAt) continue
+        if (prereq.status === 'finished' || prereq.status === 'walkover' || prereq.status === 'retired') continue
+        // prereq is unfinished and has a scheduled time — check minimum start
+        const prereqDate = prereq.scheduledAt.slice(0, 10)
+        const { duration } = getDaySetting(prereqDate)
+        const minStartMs = new Date(prereq.scheduledAt).getTime() + (duration + restMins) * 60 * 1000
+        const matchStartMs = new Date(m.scheduledAt).getTime()
+        if (matchStartMs < minStartMs) {
+          const mName =
+            m.team1Name && m.team2Name ? `${m.team1Name} – ${m.team2Name}` : t('schedule.tbd')
+          const prereqName =
+            prereq.team1Name && prereq.team2Name
+              ? `${prereq.team1Name} – ${prereq.team2Name}`
+              : t('schedule.bracketMatchTbd')
+          const minTimeStr = new Date(minStartMs).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+          })
+          const matchTimeStr = formatTime(m.scheduledAt)
+          return t('schedule.queueTimeConflict', {
+            match: mName,
+            matchTime: matchTimeStr,
+            prereq: prereqName,
+            minTime: minTimeStr
+          })
+        }
+      }
+    }
+    return null
+  }
+
+  /** True when the current drag hover position would violate bracket ordering or time constraints. */
+  const queueInsertIsInvalid = useMemo(() => {
+    if (queueDragItemId === null || queueInsertIdx === null) return false
+    const proposed = computeNewOrder(queueInsertIdx, queueDragItemId, queueSelectedIds)
+    if (checkBracketOrder(proposed) !== null) return true
+    const effectiveIds = queueSelectedIds.has(queueDragItemId)
+      ? queueSelectedIds
+      : new Set([queueDragItemId])
+    return checkTimeConstraints(effectiveIds) !== null
+  }, [queueDragItemId, queueInsertIdx, queueSelectedIds, filteredUnscheduled, tournament, daySettings])
 
   // Right column: live/finished/walkover/retired — active or completed matches
   const rightMatches = useMemo(
@@ -462,6 +576,98 @@ export function TournamentSchedule() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // ─── Queue reorder ────────────────────────────────────────────────────────
+
+  function handleQueueCardClick(e: React.MouseEvent, matchId: string) {
+    // Don't select when clicking interactive children (buttons, inputs, etc.)
+    if ((e.target as HTMLElement).closest('button, input, select, a')) return
+    e.preventDefault()
+    if (e.shiftKey && queueLastClickId) {
+      const ids = filteredUnscheduled.map((m) => m.id)
+      const fromIdx = ids.indexOf(queueLastClickId)
+      const toIdx = ids.indexOf(matchId)
+      const [start, end] = fromIdx <= toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx]
+      setQueueSelectedIds((prev) => {
+        const next = new Set(prev)
+        for (let i = start; i <= end; i++) next.add(ids[i])
+        return next
+      })
+    } else if (e.ctrlKey || e.metaKey) {
+      setQueueSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(matchId)) next.delete(matchId)
+        else next.add(matchId)
+        return next
+      })
+      setQueueLastClickId(matchId)
+    } else {
+      // Single click: toggle off if already the only item selected, else select just this
+      setQueueSelectedIds((prev) => {
+        if (prev.size === 1 && prev.has(matchId)) return new Set()
+        return new Set([matchId])
+      })
+      setQueueLastClickId(matchId)
+    }
+  }
+
+  async function handleQueueReorder(insertIdx: number) {
+    if (queueDragItemId === null) return
+
+    const newOrder = computeNewOrder(insertIdx, queueDragItemId, queueSelectedIds)
+    const items = filteredUnscheduled
+
+    console.log('[queue] reorder | insertIdx', insertIdx, '| drag', queueDragItemId, '| selected', [...queueSelectedIds])
+    console.log('[queue] proposed order:', newOrder.map((m, i) => `${i}:${m.id.slice(0,8)}`).join(' '))
+
+    // Validate bracket ordering constraints
+    const bracketError = checkBracketOrder(newOrder)
+    if (bracketError) {
+      console.log('[queue] bracket violation →', bracketError)
+      setQueueReorderError(bracketError)
+      setQueueDragItemId(null)
+      setQueueInsertIdx(null)
+      return
+    }
+
+    // Validate time constraints (match cannot be scheduled before prerequisite finishes + rest)
+    const effectiveIds = queueSelectedIds.has(queueDragItemId)
+      ? queueSelectedIds
+      : new Set([queueDragItemId])
+    const timeError = checkTimeConstraints(effectiveIds)
+    if (timeError) {
+      console.log('[queue] time constraint violation →', timeError)
+      setQueueReorderError(timeError)
+      setQueueDragItemId(null)
+      setQueueInsertIdx(null)
+      return
+    }
+
+    // No-op if order didn't change
+    if (newOrder.every((m, i) => m.id === items[i].id)) {
+      console.log('[queue] no-op: order unchanged')
+      setQueueDragItemId(null)
+      setQueueInsertIdx(null)
+      return
+    }
+
+    console.log('[queue] saving new positions...')
+
+    const effectiveSelectedIds = queueSelectedIds.has(queueDragItemId)
+      ? queueSelectedIds
+      : new Set([queueDragItemId])
+    const selectedInOrder = newOrder.filter((m) => effectiveSelectedIds.has(m.id))
+
+    // Assign sequential queue_position values matching the new order.
+    // scheduledAt is intentionally left unchanged.
+    await api.schedule.setQueuePositions(newOrder.map((m, i) => ({ matchId: m.id, position: i })))
+    await loadData()
+
+    // Keep moved items highlighted after drop
+    setQueueSelectedIds(new Set(selectedInOrder.map((m) => m.id)))
+    setQueueDragItemId(null)
+    setQueueInsertIdx(null)
   }
 
   // ─── Drag-and-drop: drop on court ─────────────────────────────────────────
@@ -766,43 +972,141 @@ export function TournamentSchedule() {
       /* Two-column body */
       <div className="flex min-h-0 flex-1 divide-x overflow-hidden">
 
-        {/* Left column — Unscheduled */}
+        {/* Left column — Queue */}
         <div className="flex w-1/2 flex-col overflow-hidden">
           <div className="border-b bg-muted/20 px-4 py-2">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t('schedule.unscheduledCount', { count: filteredUnscheduled.length })}
+              {queueSelectedIds.size > 1 && (
+                <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+                  {queueSelectedIds.size} {t('schedule.selected')}
+                </span>
+              )}
             </h2>
+            {queueReorderError && (
+              <div className="mt-1.5 flex items-start gap-1.5 rounded-md border border-orange-300 bg-orange-50 px-2.5 py-1.5 text-xs text-orange-800">
+                <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" />
+                <span className="flex-1">{queueReorderError}</span>
+                <button
+                  onClick={() => setQueueReorderError(null)}
+                  className="shrink-0 text-orange-500 hover:text-orange-700"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
-          <div className="flex-1 overflow-y-auto px-4 py-3 space-y-1.5">
+          <div
+            className="flex-1 overflow-y-auto px-4 py-3"
+            onDragLeave={(e) => {
+              // Only clear when mouse truly leaves the container
+              const rect = e.currentTarget.getBoundingClientRect()
+              if (
+                e.clientX < rect.left || e.clientX > rect.right ||
+                e.clientY < rect.top || e.clientY > rect.bottom
+              ) {
+                setQueueInsertIdx(null)
+              }
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              if (queueDragItemId !== null) {
+                void handleQueueReorder(queueInsertIdx ?? filteredUnscheduled.length)
+              }
+            }}
+          >
             {filteredUnscheduled.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('schedule.noUnscheduled')}</p>
             ) : (
-              filteredUnscheduled.map((m) => (
-                <div
-                  key={m.id}
-                  draggable={canStartMatch(m)}
-                  onDragStart={() => setDraggedMatchId(m.id)}
-                  onDragEnd={() => { setDraggedMatchId(null); setDragOverCourtId(null) }}
-                  className={canStartMatch(m) ? 'cursor-grab active:cursor-grabbing' : undefined}
-                >
-                  <MatchCard
-                    match={m}
-                    priority={priorityByMatch.get(m.id) ?? null}
-                    maxBracketRound={maxBracketRoundByRound.get(m.roundId)}
-                    timePrefix={m.scheduledAt ? formatTime(m.scheduledAt) : undefined}
-                    action={
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-6 shrink-0 px-2 text-xs"
-                        onClick={() => openAssign(m)}
+              <div className="flex flex-col gap-1.5">
+                {filteredUnscheduled.map((m, idx) => {
+                  const isSelected = queueSelectedIds.has(m.id)
+                  const isDragging = queueDragItemId !== null
+                  const isBeingDragged = isDragging && queueSelectedIds.has(m.id) && queueDragItemId !== null &&
+                    (queueDragItemId === m.id || queueSelectedIds.has(queueDragItemId))
+                  return (
+                    <div key={m.id}>
+                      {/* Drop indicator above this item */}
+                      {isDragging && queueInsertIdx === idx && (
+                        <div className={cn('mb-1 h-0.5 rounded-full', queueInsertIsInvalid ? 'bg-destructive' : 'bg-primary')} />
+                      )}
+                      <div
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.effectAllowed = 'move'
+                          setDraggedMatchId(m.id)
+                          setQueueDragItemId(m.id)
+                          // If dragging an item outside the current selection, don't clear
+                          // the selection — just drag this item alone (selection stays visible
+                          // but won't participate in the move)
+                          console.log('[DnD] dragStart id=%s inSelection=%s selected=[%s]', m.id, queueSelectedIds.has(m.id), [...queueSelectedIds].join(','))
+                        }}
+                        onDragEnd={() => {
+                          console.log('[DnD] dragEnd dragItemId=%s insertIdx=%s', queueDragItemId, queueInsertIdx)
+                          setDraggedMatchId(null)
+                          setDragOverCourtId(null)
+                          setQueueDragItemId(null)
+                          setQueueInsertIdx(null)
+                        }}
+                        onDragOver={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setDragOverCourtId(null)
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const midY = rect.top + rect.height / 2
+                          const next = e.clientY < midY ? idx : idx + 1
+                          if (next !== queueInsertIdx) {
+                            console.log('[DnD] dragOver itemIdx=%d → insertIdx=%d (y=%.0f mid=%.0f)', idx, next, e.clientY, midY)
+                          }
+                          setQueueInsertIdx(next)
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          // Compute insert position fresh from mouse coords — avoids stale closure on queueInsertIdx
+                          const rect = e.currentTarget.getBoundingClientRect()
+                          const dropIdx = e.clientY < rect.top + rect.height / 2 ? idx : idx + 1
+                          console.log('[DnD] drop on itemIdx=%d dropIdx=%d dragItemId=%s selected=%s', idx, dropIdx, queueDragItemId, [...queueSelectedIds].join(','))
+                          if (queueDragItemId !== null) {
+                            void handleQueueReorder(dropIdx)
+                          }
+                        }}
+                        onClick={(e) => handleQueueCardClick(e, m.id)}
+                        className={cn(
+                          'cursor-grab active:cursor-grabbing rounded-lg transition-opacity',
+                          isSelected && 'ring-2 ring-primary ring-offset-1',
+                          isBeingDragged && 'opacity-40'
+                        )}
                       >
-                        {t('schedule.assign')}
-                      </Button>
-                    }
-                  />
-                </div>
-              ))
+                        <MatchCard
+                          match={m}
+                          priority={priorityByMatch.get(m.id) ?? null}
+                          maxBracketRound={maxBracketRoundByRound.get(m.roundId)}
+                          timePrefix={m.scheduledAt ? formatTime(m.scheduledAt) : undefined}
+                          action={
+                            <div className="flex shrink-0 items-center gap-1">
+                              <GripVertical className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => openAssign(m)}
+                              >
+                                {t('schedule.assign')}
+                              </Button>
+                            </div>
+                          }
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+                {/* Drop indicator at end of list */}
+                {queueDragItemId !== null && queueInsertIdx === filteredUnscheduled.length && (
+                  <div className={cn('h-0.5 rounded-full', queueInsertIsInvalid ? 'bg-destructive' : 'bg-primary')} />
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -843,7 +1147,7 @@ export function TournamentSchedule() {
                   return (
                     <div
                       key={court.id}
-                      onDragOver={(e) => { e.preventDefault(); setDragOverCourtId(court.id) }}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverCourtId(court.id); setQueueInsertIdx(null) }}
                       onDragLeave={() => setDragOverCourtId(null)}
                       onDrop={() => handleDropOnCourt(court.id)}
                       className={cn(

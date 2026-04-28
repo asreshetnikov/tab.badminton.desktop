@@ -120,7 +120,9 @@ const api: AppAPI = {
     setNotBeforeHard: (matchId: string, datetime: string | null) =>
       ipcRenderer.invoke('schedule:setNotBeforeHard', matchId, datetime),
     buildQueue: (tournamentId: string) =>
-      ipcRenderer.invoke('schedule:buildQueue', tournamentId)
+      ipcRenderer.invoke('schedule:buildQueue', tournamentId),
+    setQueuePositions: (positions: Array<{ matchId: string; position: number }>) =>
+      ipcRenderer.invoke('schedule:setQueuePositions', positions)
   },
 
   stageDurations: {

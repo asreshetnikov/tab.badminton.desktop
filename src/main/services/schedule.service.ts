@@ -243,9 +243,28 @@ function getMatchesForTournament(
       notBeforeSoft: m.not_before_soft,
       actualStart: m.actual_start,
       actualEnd: m.actual_end,
-      priority: null
+      priority: null,
+      queuePosition: m.queue_position ?? null,
+      leftMatchId: m.left_match_id,
+      rightMatchId: m.right_match_id
     }
   })
+}
+
+/**
+ * Bulk-update queue_position for a list of matches.
+ * Runs in a single transaction.
+ */
+export function setQueuePositions(
+  db: BetterSQLite3Database<typeof schema>,
+  positions: Array<{ matchId: string; position: number }>
+): void {
+  for (const { matchId, position } of positions) {
+    db.update(schema.matches)
+      .set({ queue_position: position })
+      .where(eq(schema.matches.id, matchId))
+      .run()
+  }
 }
 
 /**

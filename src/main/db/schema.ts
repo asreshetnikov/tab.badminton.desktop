@@ -164,7 +164,8 @@ export const matches = sqliteTable('matches', {
   not_before_hard: text('not_before_hard'),
   not_before_soft: text('not_before_soft'),
   actual_start: text('actual_start'),
-  actual_end: text('actual_end')
+  actual_end: text('actual_end'),
+  queue_position: integer('queue_position')
 })
 
 export const tournament_stage_durations = sqliteTable('tournament_stage_durations', {

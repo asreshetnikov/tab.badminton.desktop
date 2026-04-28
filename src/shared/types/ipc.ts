@@ -163,6 +163,7 @@ export interface AppAPI {
     autoSchedule(tournamentId: string): Promise<void>
     setNotBeforeHard(matchId: string, datetime: string | null): Promise<void>
     buildQueue(tournamentId: string): Promise<ScheduleQueueItem[]>
+    setQueuePositions(positions: Array<{ matchId: string; position: number }>): Promise<void>
   }
 
   stageDurations: {

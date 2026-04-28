@@ -22,6 +22,7 @@ import { eq, inArray, and, notInArray } from 'drizzle-orm'
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../db/schema'
 import { toLocalISO, toLocalDateStr } from '../utils/datetime'
+import { setQueuePositions } from './schedule.service'
 
 const DEFAULT_START_TIME = '09:00'
 const DEFAULT_MATCH_DURATION = 60
@@ -548,6 +549,63 @@ export function autoSchedule(
   if (playoffRounds.length > 0) {
     _preScheduleBracket(db, tournamentId, playoffRounds, courtSlots, restMinutes)
   }
+
+  // Phase 4: assign queue_position to all queued matches in scheduled_at order
+  // so the queue sort is stable and reflects the auto-scheduled order.
+  computeAndSaveQueuePositions(db, tournamentId)
+}
+
+/**
+ * Compute and persist queue_position for every queued (scheduled/ready) match
+ * in the tournament, ordered by scheduled_at ASC (nulls last), then by id ASC
+ * as a stable tiebreaker.
+ *
+ * Called after autoSchedule and can also be called standalone.
+ */
+export function computeAndSaveQueuePositions(
+  db: BetterSQLite3Database<typeof schema>,
+  tournamentId: string
+): void {
+  const allEvents = db
+    .select({ id: schema.events.id })
+    .from(schema.events)
+    .where(eq(schema.events.tournament_id, tournamentId))
+    .all()
+
+  if (allEvents.length === 0) return
+
+  const allRoundIds = db
+    .select({ id: schema.rounds.id })
+    .from(schema.rounds)
+    .where(inArray(schema.rounds.event_id, allEvents.map((e) => e.id)))
+    .all()
+    .map((r) => r.id)
+
+  if (allRoundIds.length === 0) return
+
+  const queuedMatches = db
+    .select({ id: schema.matches.id, scheduled_at: schema.matches.scheduled_at })
+    .from(schema.matches)
+    .where(
+      and(
+        inArray(schema.matches.round_id, allRoundIds),
+        notInArray(schema.matches.status, ['live', 'finished', 'walkover', 'retired'])
+      )
+    )
+    .all()
+
+  // Sort: scheduled_at ASC (null → end), stable tiebreaker by id
+  queuedMatches.sort((a, b) => {
+    const ta = a.scheduled_at ? new Date(a.scheduled_at).getTime() : Infinity
+    const tb = b.scheduled_at ? new Date(b.scheduled_at).getTime() : Infinity
+    if (ta !== tb) return ta - tb
+    return a.id < b.id ? -1 : 1
+  })
+
+  setQueuePositions(
+    db,
+    queuedMatches.map((m, i) => ({ matchId: m.id, position: i }))
+  )
 }
 
 // ─── Internal scheduling helpers ─────────────────────────────────────────────

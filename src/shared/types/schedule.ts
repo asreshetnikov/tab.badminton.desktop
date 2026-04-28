@@ -33,4 +33,10 @@ export interface MatchSlot {
   actualEnd: string | null
   /** Scheduling priority: higher = schedule sooner */
   priority: number | null
+  /** Manual queue order (lower = earlier in the queue); null = not yet assigned */
+  queuePosition: number | null
+  /** Left child match id (playoff): must be scheduled before this match */
+  leftMatchId: string | null
+  /** Right child match id (playoff): must be scheduled before this match */
+  rightMatchId: string | null
 }

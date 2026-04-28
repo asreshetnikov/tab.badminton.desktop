@@ -5,7 +5,8 @@ import {
   validateConflicts,
   getOrderOfPlay,
   listScheduled,
-  listUnscheduled
+  listUnscheduled,
+  setQueuePositions
 } from '../../services/schedule.service'
 import {
   autoSchedule,
@@ -47,5 +48,11 @@ export function registerScheduleHandler(): void {
 
   ipcMain.handle('schedule:buildQueue', (_e, tournamentId: string) =>
     buildQueue(getDb(), tournamentId)
+  )
+
+  ipcMain.handle(
+    'schedule:setQueuePositions',
+    (_e, positions: Array<{ matchId: string; position: number }>) =>
+      setQueuePositions(getDb(), positions)
   )
 }
