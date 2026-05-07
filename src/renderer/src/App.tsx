@@ -12,17 +12,12 @@ import { GroupsView } from './app/routes/GroupsView'
 import { PlayoffBracket } from './app/routes/PlayoffBracket'
 import { TournamentSchedule } from './app/routes/TournamentSchedule'
 import { TournamentPlayerDetail } from './app/routes/TournamentPlayerDetail'
-
-function Placeholder({ title }: { title: string }) {
-  return (
-    <div className="flex h-full items-center justify-center">
-      <p className="text-muted-foreground">{title}</p>
-    </div>
-  )
-}
+import { Settings } from './app/routes/Settings'
+import { AppSettingsProvider } from './contexts/AppSettingsContext'
 
 function App() {
   return (
+    <AppSettingsProvider>
     <HashRouter>
       <Routes>
         <Route element={<AppShell />}>
@@ -38,10 +33,11 @@ function App() {
           <Route path="/tournaments/:id/schedule" element={<TournamentSchedule />} />
           <Route path="/players" element={<Players />} />
           <Route path="/teams" element={<Teams />} />
-          <Route path="/settings" element={<Placeholder title="Settings" />} />
+          <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>
     </HashRouter>
+    </AppSettingsProvider>
   )
 }
 

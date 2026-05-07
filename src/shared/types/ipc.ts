@@ -16,6 +16,7 @@ import type { MatchWithTeams, UpdateMatchResultDTO } from './match'
 import type { MatchSlot } from './schedule'
 import type { TournamentDaySetting, UpsertTournamentDaySettingDTO } from './tournament-day-settings'
 import type { TournamentStageDuration, UpsertStageDurationDTO } from './tournament-stage-duration'
+import type { AppSettings } from './app-settings'
 
 export interface ScheduleQueueItem {
   matchId: string
@@ -51,6 +52,12 @@ export type { MatchWithTeams, UpdateMatchResultDTO }
 export type { MatchSlot }
 export type { TournamentDaySetting, UpsertTournamentDaySettingDTO }
 export type { TournamentStageDuration, UpsertStageDurationDTO }
+export type { AppSettings }
+
+export interface SimulationResult {
+  matchesPlayed: number
+  remaining: number
+}
 
 export interface AppAPI {
   ping(): Promise<string>
@@ -170,5 +177,14 @@ export interface AppAPI {
     list(tournamentId: string): Promise<TournamentStageDuration[]>
     upsert(tournamentId: string, bracketRound: number, dto: UpsertStageDurationDTO): Promise<TournamentStageDuration>
     delete(id: string): Promise<void>
+  }
+
+  appSettings: {
+    get(): Promise<AppSettings>
+    set(settings: Partial<AppSettings>): Promise<AppSettings>
+  }
+
+  tournaments: {
+    simulate(tournamentId: string): Promise<SimulationResult>
   }
 }

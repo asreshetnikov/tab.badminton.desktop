@@ -2,9 +2,11 @@ import { NavLink } from 'react-router-dom'
 import { LayoutDashboard, Users, UsersRound, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
+import { useAppSettings } from '@renderer/contexts/AppSettingsContext'
 
 export function Sidebar() {
   const { t } = useTranslation()
+  const { settings } = useAppSettings()
 
   const navItems = [
     { to: '/', icon: LayoutDashboard, label: t('nav.dashboard'), end: true },
@@ -14,8 +16,13 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-screen w-56 flex-col border-r bg-background">
-      <div className="flex h-14 items-center border-b px-4">
+      <div className="flex h-14 items-center border-b px-4 gap-2">
         <span className="text-base font-semibold tracking-tight">Tab Badminton</span>
+        {settings.demoMode && (
+          <span className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-300">
+            Demo
+          </span>
+        )}
       </div>
 
       <nav className="flex-1 space-y-1 p-2">

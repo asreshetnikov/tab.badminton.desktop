@@ -132,6 +132,15 @@ const api: AppAPI = {
       ipcRenderer.invoke('stageDurations:upsert', tournamentId, bracketRound, dto),
     delete: (id: string) =>
       ipcRenderer.invoke('stageDurations:delete', id)
+  },
+
+  appSettings: {
+    get: () => ipcRenderer.invoke('appSettings:get'),
+    set: (settings: Partial<{ demoMode: boolean }>) => ipcRenderer.invoke('appSettings:set', settings)
+  },
+
+  tournaments: {
+    simulate: (tournamentId: string) => ipcRenderer.invoke('tournaments:simulate', tournamentId)
   }
 }
 

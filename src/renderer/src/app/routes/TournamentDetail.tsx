@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Pencil, Trash2, Users, Shield, ListTree, CalendarClock } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, Users, Shield, ListTree, CalendarClock, Play } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -19,6 +19,7 @@ import { DaySettingsList } from '@renderer/features/tournament/DaySettingsList'
 import { formatDate } from '@renderer/lib/format'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
+import { useAppSettings } from '@renderer/contexts/AppSettingsContext'
 import type { Tournament, Venue, CreateTournamentDTO } from '@shared/types/ipc'
 
 interface TabCounts {
@@ -32,6 +33,7 @@ export function TournamentDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { settings } = useAppSettings()
   const [tournament, setTournament] = useState<Tournament | undefined>()
   const [venue, setVenue] = useState<Venue | undefined>()
   const [isEditing, setIsEditing] = useState(false)
@@ -39,6 +41,8 @@ export function TournamentDetail() {
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [isSimulating, setIsSimulating] = useState(false)
+  const [simulateMsg, setSimulateMsg] = useState<string | null>(null)
   const [counts, setCounts] = useState<TabCounts | null>(null)
   const [hasAcceptedPlayers, setHasAcceptedPlayers] = useState(false)
 
@@ -76,6 +80,20 @@ export function TournamentDetail() {
 
   if (!tournament) {
     return <div className="p-6 text-sm text-muted-foreground">{t('dashboard.loading')}</div>
+  }
+
+  async function handleSimulate() {
+    if (!tournament) return
+    setIsSimulating(true)
+    setSimulateMsg(null)
+    try {
+      const result = await api.tournaments.simulate(tournament.id)
+      setSimulateMsg(`Simulated ${result.matchesPlayed} matches.${result.remaining > 0 ? ` ${result.remaining} unscheduled remain.` : ''}`)
+    } catch (err) {
+      setSimulateMsg(`Error: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setIsSimulating(false)
+    }
   }
 
   async function handleUpdate(data: CreateTournamentDTO) {
@@ -186,7 +204,22 @@ export function TournamentDetail() {
             <span className="ml-1.5 text-xs text-muted-foreground">{counts.matches}</span>
           )}
         </Button>
+        {settings.demoMode && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleSimulate}
+            disabled={isSimulating}
+            className="ml-auto border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+          >
+            <Play className="mr-1.5 h-3.5 w-3.5" />
+            {isSimulating ? 'Simulating…' : 'Simulate'}
+          </Button>
+        )}
       </div>
+      {simulateMsg && (
+        <p className="mb-4 ml-11 text-sm text-muted-foreground">{simulateMsg}</p>
+      )}
 
       <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
         <dt className="font-medium text-muted-foreground">{t('tournamentDetail.venue')}</dt>
