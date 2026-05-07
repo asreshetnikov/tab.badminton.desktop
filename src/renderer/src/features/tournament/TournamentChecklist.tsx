@@ -13,10 +13,15 @@ interface ChecklistData {
   registrationsTotal: number
   registrationsAccepted: number
   entriesCount: number
+  eventsWithEntries: number
   roundsCount: number
+  eventsWithRounds: number
   matchesTotal: number
+  eventsWithMatches: number
   matchesScheduled: number
+  eventsWithScheduled: number
   matchesFinished: number
+  eventsWithFinished: number
 }
 
 interface StepDef {
@@ -32,6 +37,9 @@ interface StepDef {
 
 function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: ReturnType<typeof useNavigate>): StepDef[] {
   const pl = (n: number, singular: string, plural: string) => (n === 1 ? singular : plural)
+  // Show "N/N cat." suffix only when there are multiple categories
+  const cat = (withData: number) =>
+    d.eventsCount > 1 ? ` · ${withData}/${d.eventsCount} cat.` : ''
   return [
     {
       phase: 'setup',
@@ -99,7 +107,9 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       hint: 'Register teams (doubles pairs) in event categories',
       done: d.entriesCount > 0,
       countText:
-        d.entriesCount > 0 ? `${d.entriesCount} ${pl(d.entriesCount, 'entry', 'entries')}` : 'No entries',
+        d.entriesCount > 0
+          ? `${d.entriesCount} ${pl(d.entriesCount, 'entry', 'entries')}${cat(d.eventsWithEntries)}`
+          : 'No entries',
       onGo: () => navigate(`/tournaments/${id}/teams`),
       goLabel: 'Entries',
     },
@@ -109,7 +119,9 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       hint: 'Create round-robin groups and/or playoff brackets and add participants',
       done: d.roundsCount > 0,
       countText:
-        d.roundsCount > 0 ? `${d.roundsCount} ${pl(d.roundsCount, 'round', 'rounds')}` : 'No rounds',
+        d.roundsCount > 0
+          ? `${d.roundsCount} ${pl(d.roundsCount, 'round', 'rounds')}${cat(d.eventsWithRounds)}`
+          : 'No rounds',
       onGo: () => navigate(`/tournaments/${id}/rounds`),
       goLabel: 'Rounds',
     },
@@ -120,7 +132,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       done: d.matchesTotal > 0,
       countText:
         d.matchesTotal > 0
-          ? `${d.matchesTotal} ${pl(d.matchesTotal, 'match', 'matches')}`
+          ? `${d.matchesTotal} ${pl(d.matchesTotal, 'match', 'matches')}${cat(d.eventsWithMatches)}`
           : 'No matches',
       onGo: () => navigate(`/tournaments/${id}/rounds`),
       goLabel: 'Rounds',
@@ -132,7 +144,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       done: d.matchesScheduled > 0,
       countText:
         d.matchesTotal > 0
-          ? `${d.matchesScheduled} / ${d.matchesTotal} scheduled`
+          ? `${d.matchesScheduled} / ${d.matchesTotal} scheduled${cat(d.eventsWithScheduled)}`
           : 'No matches yet',
       onGo: () => navigate(`/tournaments/${id}/schedule`),
       goLabel: 'Schedule',
@@ -144,7 +156,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       done: d.matchesFinished > 0,
       countText:
         d.matchesTotal > 0
-          ? `${d.matchesFinished} / ${d.matchesTotal} finished`
+          ? `${d.matchesFinished} / ${d.matchesTotal} finished${cat(d.eventsWithFinished)}`
           : 'No matches yet',
       onGo: () => navigate(`/tournaments/${id}/schedule`),
       goLabel: 'Schedule',
@@ -182,6 +194,7 @@ export function TournamentChecklist({
         ])
       const roundsArr = await Promise.all(events.map((e) => api.rounds.listByEvent(e.id)))
       const allMatches = [...scheduled, ...unscheduled]
+      const finished = allMatches.filter((m) => m.status === 'finished' || m.status === 'retired')
       setData({
         hasVenue: tournament.venue_id != null,
         courtsCount: courts.length,
@@ -190,12 +203,15 @@ export function TournamentChecklist({
         registrationsTotal: players.length,
         registrationsAccepted: players.filter((p) => p.status === 'accepted').length,
         entriesCount: entries.length,
+        eventsWithEntries: new Set(entries.map((e) => e.event_id)).size,
         roundsCount: roundsArr.flat().length,
+        eventsWithRounds: roundsArr.filter((r) => r.length > 0).length,
         matchesTotal: allMatches.length,
+        eventsWithMatches: new Set(allMatches.map((m) => m.eventId)).size,
         matchesScheduled: scheduled.length,
-        matchesFinished: allMatches.filter(
-          (m) => m.status === 'finished' || m.status === 'retired'
-        ).length,
+        eventsWithScheduled: new Set(scheduled.map((m) => m.eventId)).size,
+        matchesFinished: finished.length,
+        eventsWithFinished: new Set(finished.map((m) => m.eventId)).size,
       })
     } finally {
       setLoading(false)
