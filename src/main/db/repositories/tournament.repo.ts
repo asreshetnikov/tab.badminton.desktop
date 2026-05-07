@@ -1,4 +1,4 @@
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import { randomUUID } from 'crypto'
 import * as schema from '../schema'
@@ -7,7 +7,7 @@ import type { Tournament, CreateTournamentDTO, UpdateTournamentDTO } from '@shar
 export class TournamentRepository {
   constructor(private db: BetterSQLite3Database<typeof schema>) {}
 
-  create(data: CreateTournamentDTO): Tournament {
+  create(data: CreateTournamentDTO, isDemoMode = false): Tournament {
     const id = randomUUID()
     const now = new Date().toISOString()
     this.db
@@ -22,7 +22,8 @@ export class TournamentRepository {
         age_min: data.age_min ?? null,
         age_max: data.age_max ?? null,
         created_at: now,
-        updated_at: now
+        updated_at: now,
+        is_demo: isDemoMode
       })
       .run()
     return this.getByIdOrThrow(id)
@@ -32,8 +33,12 @@ export class TournamentRepository {
     return this.db.select().from(schema.tournaments).where(eq(schema.tournaments.id, id)).get()
   }
 
-  list(): Tournament[] {
-    return this.db.select().from(schema.tournaments).all()
+  list(isDemoMode = false): Tournament[] {
+    return this.db
+      .select()
+      .from(schema.tournaments)
+      .where(eq(schema.tournaments.is_demo, isDemoMode))
+      .all()
   }
 
   update(id: string, data: UpdateTournamentDTO): Tournament {

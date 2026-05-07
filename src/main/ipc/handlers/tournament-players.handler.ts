@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import { getDb } from '../../db/client'
 import { TournamentPlayerRepository } from '../../db/repositories/tournament-player.repo'
 import { ensureSinglesTeamOnAccept } from '../../services/auto-team.service'
+import { getAppSettings } from '../../services/app-settings.service'
 import type { RegistrationStatus } from '@shared/types/tournament-player'
 
 export function registerTournamentPlayersHandler(): void {
@@ -18,7 +19,7 @@ export function registerTournamentPlayersHandler(): void {
     const db = getDb()
     const result = new TournamentPlayerRepository(db).updateStatus(id, status)
     if (status === 'accepted') {
-      ensureSinglesTeamOnAccept(db, result.player_id)
+      ensureSinglesTeamOnAccept(db, result.player_id, getAppSettings().demoMode)
     }
     return result
   })

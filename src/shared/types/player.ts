@@ -7,6 +7,7 @@ export interface Player {
   club: string | null
   gender: PlayerGender | null
   birth_year: number | null
+  is_demo: boolean
 }
 
 export interface CreatePlayerDTO {

@@ -7,9 +7,9 @@ import type { TeamWithPlayers, CreateTeamDTO } from '@shared/types/team'
 export class TeamRepository {
   constructor(private db: BetterSQLite3Database<typeof schema>) {}
 
-  create(data: CreateTeamDTO): TeamWithPlayers {
+  create(data: CreateTeamDTO, isDemoMode = false): TeamWithPlayers {
     const id = randomUUID()
-    this.db.insert(schema.teams).values({ id, name: data.name, category: data.category }).run()
+    this.db.insert(schema.teams).values({ id, name: data.name, category: data.category, is_demo: isDemoMode }).run()
 
     data.player_ids.forEach((player_id, index) => {
       this.db
@@ -27,8 +27,8 @@ export class TeamRepository {
     return { ...team, players: this.loadPlayers(id) }
   }
 
-  list(): TeamWithPlayers[] {
-    const teams = this.db.select().from(schema.teams).all()
+  list(isDemoMode = false): TeamWithPlayers[] {
+    const teams = this.db.select().from(schema.teams).where(eq(schema.teams.is_demo, isDemoMode)).all()
     return teams.map((t) => ({ ...t, players: this.loadPlayers(t.id) }))
   }
 

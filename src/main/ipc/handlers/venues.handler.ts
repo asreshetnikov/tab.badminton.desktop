@@ -1,17 +1,18 @@
 import { ipcMain } from 'electron'
 import { getDb } from '../../db/client'
 import { VenueRepository } from '../../db/repositories/venue.repo'
+import { getAppSettings } from '../../services/app-settings.service'
 import type { CreateVenueDTO, UpdateVenueDTO } from '@shared/types/venue'
 
 export function registerVenuesHandler(): void {
   ipcMain.handle('venues:create', (_e, data: CreateVenueDTO) =>
-    new VenueRepository(getDb()).create(data)
+    new VenueRepository(getDb()).create(data, getAppSettings().demoMode)
   )
   ipcMain.handle('venues:getById', (_e, id: string) =>
     new VenueRepository(getDb()).getById(id)
   )
   ipcMain.handle('venues:list', () =>
-    new VenueRepository(getDb()).list()
+    new VenueRepository(getDb()).list(getAppSettings().demoMode)
   )
   ipcMain.handle('venues:update', (_e, id: string, data: UpdateVenueDTO) =>
     new VenueRepository(getDb()).update(id, data)

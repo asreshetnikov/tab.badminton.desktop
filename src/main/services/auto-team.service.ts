@@ -13,7 +13,8 @@ import * as schema from '../db/schema'
  */
 export function ensureSinglesTeamOnAccept(
   db: BetterSQLite3Database<typeof schema>,
-  playerId: string
+  playerId: string,
+  isDemoMode = false
 ): void {
   const player = db.select().from(schema.players).where(eq(schema.players.id, playerId)).get()
   if (!player?.gender) return
@@ -38,7 +39,7 @@ export function ensureSinglesTeamOnAccept(
   // Create a new singles team named after the player
   const teamId = randomUUID()
   db.insert(schema.teams)
-    .values({ id: teamId, name: `${player.last_name} ${player.first_name}`, category })
+    .values({ id: teamId, name: `${player.last_name} ${player.first_name}`, category, is_demo: isDemoMode })
     .run()
   db.insert(schema.team_players)
     .values({ id: randomUUID(), team_id: teamId, player_id: playerId, position: 1 })

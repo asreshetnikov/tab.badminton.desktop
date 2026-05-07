@@ -7,11 +7,11 @@ import type { Player, CreatePlayerDTO, UpdatePlayerDTO } from '@shared/types/pla
 export class PlayerRepository {
   constructor(private db: BetterSQLite3Database<typeof schema>) {}
 
-  create(data: CreatePlayerDTO): Player {
+  create(data: CreatePlayerDTO, isDemoMode = false): Player {
     const id = randomUUID()
     this.db
       .insert(schema.players)
-      .values({ id, first_name: data.first_name, last_name: data.last_name, club: data.club ?? null, gender: data.gender ?? null, birth_year: data.birth_year ?? null })
+      .values({ id, first_name: data.first_name, last_name: data.last_name, club: data.club ?? null, gender: data.gender ?? null, birth_year: data.birth_year ?? null, is_demo: isDemoMode })
       .run()
     return this.getByIdOrThrow(id)
   }
@@ -20,8 +20,8 @@ export class PlayerRepository {
     return this.db.select().from(schema.players).where(eq(schema.players.id, id)).get()
   }
 
-  list(): Player[] {
-    return this.db.select().from(schema.players).all()
+  list(isDemoMode = false): Player[] {
+    return this.db.select().from(schema.players).where(eq(schema.players.is_demo, isDemoMode)).all()
   }
 
   update(id: string, data: UpdatePlayerDTO): Player {

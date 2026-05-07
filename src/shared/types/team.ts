@@ -5,6 +5,7 @@ export interface Team {
   id: string
   name: string
   category: EventCategory
+  is_demo: boolean
 }
 
 export interface TeamWithPlayers extends Team {

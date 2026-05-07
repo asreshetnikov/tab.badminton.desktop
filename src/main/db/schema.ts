@@ -6,7 +6,8 @@ import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core'
 export const venues = sqliteTable('venues', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  address: text('address')
+  address: text('address'),
+  is_demo: integer('is_demo', { mode: 'boolean' }).notNull().default(false)
 })
 
 export const tournaments = sqliteTable('tournaments', {
@@ -22,7 +23,8 @@ export const tournaments = sqliteTable('tournaments', {
   age_max: integer('age_max'),
   rest_minutes: integer('rest_minutes'),
   created_at: text('created_at').notNull(),
-  updated_at: text('updated_at').notNull()
+  updated_at: text('updated_at').notNull(),
+  is_demo: integer('is_demo', { mode: 'boolean' }).notNull().default(false)
 })
 
 export const players = sqliteTable('players', {
@@ -31,7 +33,8 @@ export const players = sqliteTable('players', {
   last_name: text('last_name').notNull(),
   club: text('club'),
   gender: text('gender', { enum: ['M', 'F'] }),
-  birth_year: integer('birth_year')
+  birth_year: integer('birth_year'),
+  is_demo: integer('is_demo', { mode: 'boolean' }).notNull().default(false)
 })
 
 export const events = sqliteTable('events', {
@@ -62,7 +65,8 @@ export const tournament_players = sqliteTable('tournament_players', {
 export const teams = sqliteTable('teams', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
-  category: text('category', { enum: ['MS', 'WS', 'MD', 'WD', 'XD'] }).notNull()
+  category: text('category', { enum: ['MS', 'WS', 'MD', 'WD', 'XD'] }).notNull(),
+  is_demo: integer('is_demo', { mode: 'boolean' }).notNull().default(false)
 })
 
 export const tournament_teams = sqliteTable('tournament_teams', {

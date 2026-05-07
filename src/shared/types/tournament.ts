@@ -17,6 +17,7 @@ export interface Tournament {
   rest_minutes: number | null
   created_at: string
   updated_at: string
+  is_demo: boolean
 }
 
 export interface CreateTournamentDTO {

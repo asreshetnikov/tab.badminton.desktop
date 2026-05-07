@@ -2,18 +2,19 @@ import { ipcMain } from 'electron'
 import { eq, and, count } from 'drizzle-orm'
 import { getDb } from '../../db/client'
 import { TournamentRepository } from '../../db/repositories/tournament.repo'
+import { getAppSettings } from '../../services/app-settings.service'
 import * as schema from '../../db/schema'
 import type { CreateTournamentDTO, UpdateTournamentDTO } from '@shared/types/tournament'
 
 export function registerTournamentHandler(): void {
   ipcMain.handle('tournament:create', (_e, data: CreateTournamentDTO) =>
-    new TournamentRepository(getDb()).create(data)
+    new TournamentRepository(getDb()).create(data, getAppSettings().demoMode)
   )
   ipcMain.handle('tournament:getById', (_e, id: string) =>
     new TournamentRepository(getDb()).getById(id)
   )
   ipcMain.handle('tournament:list', () =>
-    new TournamentRepository(getDb()).list()
+    new TournamentRepository(getDb()).list(getAppSettings().demoMode)
   )
   ipcMain.handle('tournament:update', (_e, id: string, data: UpdateTournamentDTO) =>
     new TournamentRepository(getDb()).update(id, data)

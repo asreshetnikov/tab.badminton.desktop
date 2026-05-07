@@ -7,9 +7,9 @@ import type { Venue, CreateVenueDTO, UpdateVenueDTO } from '@shared/types/venue'
 export class VenueRepository {
   constructor(private db: BetterSQLite3Database<typeof schema>) {}
 
-  create(data: CreateVenueDTO): Venue {
+  create(data: CreateVenueDTO, isDemoMode = false): Venue {
     const id = randomUUID()
-    this.db.insert(schema.venues).values({ id, name: data.name, address: data.address ?? null }).run()
+    this.db.insert(schema.venues).values({ id, name: data.name, address: data.address ?? null, is_demo: isDemoMode }).run()
     return this.getByIdOrThrow(id)
   }
 
@@ -17,8 +17,8 @@ export class VenueRepository {
     return this.db.select().from(schema.venues).where(eq(schema.venues.id, id)).get()
   }
 
-  list(): Venue[] {
-    return this.db.select().from(schema.venues).all()
+  list(isDemoMode = false): Venue[] {
+    return this.db.select().from(schema.venues).where(eq(schema.venues.is_demo, isDemoMode)).all()
   }
 
   update(id: string, data: UpdateVenueDTO): Venue {
