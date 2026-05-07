@@ -16,6 +16,7 @@ import { TournamentForm } from '@renderer/features/tournament/TournamentForm'
 import { CourtList } from '@renderer/features/court/CourtList'
 import { EventList } from '@renderer/features/event/EventList'
 import { DaySettingsList } from '@renderer/features/tournament/DaySettingsList'
+import { TournamentChecklist } from '@renderer/features/tournament/TournamentChecklist'
 import { formatDate } from '@renderer/lib/format'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
@@ -45,6 +46,7 @@ export function TournamentDetail() {
   const [simulateMsg, setSimulateMsg] = useState<string | null>(null)
   const [counts, setCounts] = useState<TabCounts | null>(null)
   const [hasAcceptedPlayers, setHasAcceptedPlayers] = useState(false)
+  const [checklistRefreshKey, setChecklistRefreshKey] = useState(0)
 
   useEffect(() => {
     if (id) api.tournament.getById(id).then(setTournament)
@@ -96,13 +98,18 @@ export function TournamentDetail() {
     }
   }
 
+  function handleEditClose() {
+    setIsEditing(false)
+    setChecklistRefreshKey((k) => k + 1)
+  }
+
   async function handleUpdate(data: CreateTournamentDTO) {
     if (!tournament) return
     setIsSubmitting(true)
     try {
       const updated = await api.tournament.update(tournament.id, data)
       setTournament(updated)
-      setIsEditing(false)
+      handleEditClose()
     } finally {
       setIsSubmitting(false)
     }
@@ -126,7 +133,7 @@ export function TournamentDetail() {
     return (
       <div className="mx-auto max-w-lg p-6">
         <div className="mb-6 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => setIsEditing(false)}>
+          <Button variant="ghost" size="icon" onClick={handleEditClose}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h1 className="text-xl font-semibold">{t('tournamentEdit.title')}</h1>
@@ -136,7 +143,7 @@ export function TournamentDetail() {
           submitLabel={t('tournamentEdit.submit')}
           isSubmitting={isSubmitting}
           onSubmit={handleUpdate}
-          onCancel={() => setIsEditing(false)}
+          onCancel={handleEditClose}
         />
         <CourtList tournamentId={tournament.id} />
         <DaySettingsList
@@ -249,6 +256,12 @@ export function TournamentDetail() {
         tournamentId={tournament.id}
         defaultAgeMin={tournament.age_min}
         defaultAgeMax={tournament.age_max}
+      />
+
+      <TournamentChecklist
+        tournament={tournament}
+        onEdit={() => setIsEditing(true)}
+        refreshKey={checklistRefreshKey}
       />
 
       <Dialog open={deleteOpen} onOpenChange={(open) => { setDeleteOpen(open); if (!open) setDeleteError(null) }}>
