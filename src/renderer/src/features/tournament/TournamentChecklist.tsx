@@ -209,9 +209,8 @@ export function TournamentChecklist({
   if (!data) return null
 
   const steps = buildSteps(data, id, onEdit, navigate)
-  const required = steps.filter((s) => !s.optional)
-  const completedRequired = required.filter((s) => s.done).length
-  const totalRequired = required.length
+  const completedRequired = steps.filter((s) => s.done).length
+  const totalRequired = steps.length
   const allDone = completedRequired === totalRequired
   const progressPct = totalRequired > 0 ? (completedRequired / totalRequired) * 100 : 0
 

@@ -12,6 +12,7 @@ interface Props {
   tournamentId: string
   defaultAgeMin?: number | null
   defaultAgeMax?: number | null
+  onEventsChange?: () => void
 }
 
 function buildAutoName(cat: EventCategory, type: 'none' | 'under' | 'over', val: string) {
@@ -21,7 +22,7 @@ function buildAutoName(cat: EventCategory, type: 'none' | 'under' | 'over', val:
   return cat
 }
 
-export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props) {
+export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax, onEventsChange }: Props) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [events, setEvents] = useState<Event[]>([])
@@ -112,6 +113,7 @@ export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props)
       setName(buildAutoName(category, initAgeType, initAgeValue))
       setNameEdited(false)
       setShowForm(false)
+      onEventsChange?.()
     } finally {
       setIsAdding(false)
     }
@@ -157,6 +159,7 @@ export function EventList({ tournamentId, defaultAgeMin, defaultAgeMax }: Props)
     }
     setEvents((prev) => prev.filter((e) => e.id !== id))
     setDeleteError(null)
+    onEventsChange?.()
   }
 
   return (

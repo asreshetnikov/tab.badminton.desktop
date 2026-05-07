@@ -256,6 +256,7 @@ export function TournamentDetail() {
         tournamentId={tournament.id}
         defaultAgeMin={tournament.age_min}
         defaultAgeMax={tournament.age_max}
+        onEventsChange={() => setChecklistRefreshKey((k) => k + 1)}
       />
 
       <TournamentChecklist
