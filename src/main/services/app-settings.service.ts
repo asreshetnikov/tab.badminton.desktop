@@ -3,7 +3,7 @@ import { resolve } from 'path'
 import { readFileSync, writeFileSync, existsSync } from 'fs'
 import type { AppSettings } from '../../shared/types/app-settings'
 
-const DEFAULT: AppSettings = { demoMode: false }
+const DEFAULT: AppSettings = { demoMode: false, defaultMatchDuration: 30 }
 
 function settingsPath(): string {
   return resolve(app.getPath('userData'), 'app-settings.json')

@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Check } from 'lucide-react'
 import { api } from '@renderer/lib/api'
-import { DEFAULT_START_TIME, DEFAULT_MATCH_DURATION } from '@shared/types/tournament-day-settings'
+import { DEFAULT_START_TIME } from '@shared/types/tournament-day-settings'
+import { useAppSettings } from '@renderer/contexts/AppSettingsContext'
 import type { TournamentDaySetting } from '@shared/types/ipc'
 
 interface Props {
@@ -33,6 +34,7 @@ function formatDayLabel(date: string): string {
 
 export function DaySettingsList({ tournamentId, dateStart, dateEnd }: Props) {
   const { t } = useTranslation()
+  const { settings: appSettings } = useAppSettings()
   const [settings, setSettings] = useState<TournamentDaySetting[]>([])
   const days = getDaysInRange(dateStart, dateEnd)
 
@@ -46,10 +48,11 @@ export function DaySettingsList({ tournamentId, dateStart, dateEnd }: Props) {
 
   async function handleChange(date: string, field: 'start_time' | 'match_duration', value: string) {
     const current = getSetting(date)
+    const defaultDuration = appSettings.defaultMatchDuration
     const dto = {
       start_time: current?.start_time ?? DEFAULT_START_TIME,
-      match_duration: current?.match_duration ?? DEFAULT_MATCH_DURATION,
-      [field]: field === 'match_duration' ? (parseInt(value) || DEFAULT_MATCH_DURATION) : value
+      match_duration: current?.match_duration ?? defaultDuration,
+      [field]: field === 'match_duration' ? (parseInt(value) || defaultDuration) : value
     }
     const updated = await api.tournamentDaySettings.upsert(tournamentId, date, dto)
     setSettings((prev) => {
@@ -70,7 +73,7 @@ export function DaySettingsList({ tournamentId, dateStart, dateEnd }: Props) {
   const hasRecord = (date: string) => settings.some((s) => s.date === date)
 
   async function handleAccept(date: string) {
-    const dto = { start_time: DEFAULT_START_TIME, match_duration: DEFAULT_MATCH_DURATION }
+    const dto = { start_time: DEFAULT_START_TIME, match_duration: appSettings.defaultMatchDuration }
     const updated = await api.tournamentDaySettings.upsert(tournamentId, date, dto)
     setSettings((prev) => [...prev, updated])
   }
@@ -88,7 +91,7 @@ export function DaySettingsList({ tournamentId, dateStart, dateEnd }: Props) {
         {days.map((date) => {
           const s = getSetting(date)
           const startTime = s?.start_time ?? DEFAULT_START_TIME
-          const duration = s?.match_duration ?? DEFAULT_MATCH_DURATION
+          const duration = s?.match_duration ?? appSettings.defaultMatchDuration
           const saved = hasRecord(date)
           return (
             <div key={date} className="grid grid-cols-[160px_100px_120px_auto] items-center gap-x-4 rounded-md px-1 py-1 hover:bg-muted/40">

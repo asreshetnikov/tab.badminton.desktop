@@ -14,7 +14,8 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
 import type { Court, MatchSlot, ConflictInfo, Tournament, MatchWithTeams, UpdateMatchResultDTO, TournamentDaySetting, TournamentStageDuration } from '@shared/types/ipc'
 import type { MatchStatus } from '@shared/types/match'
-import { DEFAULT_START_TIME, DEFAULT_MATCH_DURATION } from '@shared/types/tournament-day-settings'
+import { DEFAULT_START_TIME } from '@shared/types/tournament-day-settings'
+import { useAppSettings } from '@renderer/contexts/AppSettingsContext'
 
 const CATEGORY_COLORS: Record<string, string> = {
   MS: 'bg-blue-50 border-blue-200 text-blue-900',
@@ -49,6 +50,7 @@ export function TournamentSchedule() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { t } = useTranslation()
+  const { settings: appSettings } = useAppSettings()
 
   const [tournament, setTournament] = useState<Tournament | undefined>()
   const [courts, setCourts] = useState<Court[]>([])
@@ -157,7 +159,7 @@ export function TournamentSchedule() {
     const s = daySettings.find((x) => x.date === date)
     return {
       startTime: s?.start_time ?? DEFAULT_START_TIME,
-      duration: s?.match_duration ?? DEFAULT_MATCH_DURATION
+      duration: s?.match_duration ?? appSettings.defaultMatchDuration
     }
   }
 

@@ -23,9 +23,9 @@ import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../db/schema'
 import { toLocalISO, toLocalDateStr } from '../utils/datetime'
 import { setQueuePositions } from './schedule.service'
+import { getAppSettings } from './app-settings.service'
 
 const DEFAULT_START_TIME = '09:00'
-const DEFAULT_MATCH_DURATION = 60
 
 /** Tracks when a specific court next becomes available. */
 type CourtSlot = { courtId: string; endTime: number }
@@ -93,7 +93,7 @@ function getDayStart(
 
 /**
  * Get match duration (in minutes) for a given bracket round.
- * Falls back to day setting or DEFAULT_MATCH_DURATION.
+ * Falls back to day setting or app-level defaultMatchDuration setting.
  */
 function getMatchDuration(
   db: BetterSQLite3Database<typeof schema>,
@@ -124,7 +124,7 @@ function getMatchDuration(
       )
     )
     .get()
-  return daySetting?.match_duration ?? DEFAULT_MATCH_DURATION
+  return daySetting?.match_duration ?? getAppSettings().defaultMatchDuration
 }
 
 /**
@@ -336,7 +336,7 @@ export function computeNotBeforeSoft(
       } else if (!isDone(m.status) && m.scheduled_at) {
         // Estimate end as scheduled_at + default duration
         const scheduledMs = new Date(m.scheduled_at).getTime()
-        const duration = DEFAULT_MATCH_DURATION * 60 * 1000
+        const duration = getAppSettings().defaultMatchDuration * 60 * 1000
         const estimatedEnd = scheduledMs + duration
         if (lastEndMs === null || estimatedEnd > lastEndMs) lastEndMs = estimatedEnd
       }
