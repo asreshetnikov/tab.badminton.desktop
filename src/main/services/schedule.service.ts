@@ -177,6 +177,20 @@ function getMatchesForTournament(
 
   if (matches.length === 0) return []
 
+  // Per-set scores
+  const matchIds = matches.map((m) => m.id)
+  const allSets = db
+    .select()
+    .from(schema.match_sets)
+    .where(inArray(schema.match_sets.match_id, matchIds))
+    .all()
+  const setsMap = new Map<string, { s1: number; s2: number }[]>()
+  for (const s of allSets) {
+    const arr = setsMap.get(s.match_id) ?? []
+    arr.push({ s1: s.s1, s2: s.s2 })
+    setsMap.set(s.match_id, arr)
+  }
+
   // Courts
   const courts = db
     .select()
@@ -229,6 +243,7 @@ function getMatchesForTournament(
       status: m.status,
       s1: m.s1,
       s2: m.s2,
+      sets: setsMap.get(m.id) ?? [],
       winnerTeamId: m.winner_team_id,
       eventId: event.id,
       eventName: event.name,

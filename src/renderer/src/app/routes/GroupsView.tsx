@@ -111,13 +111,21 @@ function BracketMatchCard({ match, onClick }: { match: MatchWithTeams; onClick: 
       <div className={cn('flex flex-1 items-center gap-1 px-2', team1Wins && 'bg-green-50 dark:bg-green-950/20')}>
         <span className={cn('min-w-0 flex-1 truncate', team1Wins ? 'font-semibold' : 'text-muted-foreground', !match.team1 && 'italic opacity-50')}>{match.team1?.name ?? '—'}</span>
         {match.team1 && <SeedBadge team={match.team1} />}
-        {done && <span className={cn('shrink-0 font-mono', team1Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s1 ?? 0}</span>}
+        {done && (
+          match.sets.length > 0
+            ? <div className="flex shrink-0 gap-0.5">{match.sets.map((s, i) => <span key={i} className={cn('font-mono text-[10px]', s.s1 > s.s2 ? 'font-bold' : 'text-muted-foreground')}>{s.s1}</span>)}</div>
+            : <span className={cn('shrink-0 font-mono', team1Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s1 ?? 0}</span>
+        )}
       </div>
       <div className="border-t border-border" />
       <div className={cn('flex flex-1 items-center gap-1 px-2', team2Wins && 'bg-green-50 dark:bg-green-950/20')}>
         <span className={cn('min-w-0 flex-1 truncate', team2Wins ? 'font-semibold' : 'text-muted-foreground', !match.team2 && 'italic opacity-50')}>{match.team2?.name ?? '—'}</span>
         {match.team2 && <SeedBadge team={match.team2} />}
-        {done && <span className={cn('shrink-0 font-mono', team2Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s2 ?? 0}</span>}
+        {done && (
+          match.sets.length > 0
+            ? <div className="flex shrink-0 gap-0.5">{match.sets.map((s, i) => <span key={i} className={cn('font-mono text-[10px]', s.s2 > s.s1 ? 'font-bold' : 'text-muted-foreground')}>{s.s2}</span>)}</div>
+            : <span className={cn('shrink-0 font-mono', team2Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s2 ?? 0}</span>
+        )}
       </div>
     </div>
   )
@@ -885,10 +893,24 @@ export function GroupsView() {
 
 function MatchScore({ match }: { match: MatchWithTeams }) {
   if (match.status !== 'finished' && match.status !== 'walkover' && match.status !== 'retired') {
-    return <span className="w-16 shrink-0 text-center text-xs text-muted-foreground">vs</span>
+    return <span className="w-10 shrink-0 text-center text-xs text-muted-foreground">vs</span>
+  }
+  if (match.sets.length > 0) {
+    return (
+      <span className="shrink-0 text-center font-mono">
+        {match.sets.map((s, i) => (
+          <span key={i}>
+            {i > 0 && ' '}
+            <span className={s.s1 > s.s2 ? 'font-semibold' : ''}>{s.s1}</span>
+            {'–'}
+            <span className={s.s2 > s.s1 ? 'font-semibold' : ''}>{s.s2}</span>
+          </span>
+        ))}
+      </span>
+    )
   }
   return (
-    <span className="w-16 shrink-0 text-center font-mono font-semibold">
+    <span className="w-10 shrink-0 text-center font-mono font-semibold">
       {match.s1 ?? 0}–{match.s2 ?? 0}
     </span>
   )

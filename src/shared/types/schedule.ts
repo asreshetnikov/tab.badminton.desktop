@@ -10,6 +10,7 @@ export interface MatchSlot {
   status: string
   s1: number | null
   s2: number | null
+  sets: { s1: number; s2: number }[]
   winnerTeamId: string | null
   eventId: string
   eventName: string

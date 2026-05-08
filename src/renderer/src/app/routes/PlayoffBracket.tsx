@@ -180,9 +180,9 @@ function MatchCard({ match, onClick }: { match: MatchWithTeams; onClick: () => v
         </span>
         {match.team1 && <SeedBadge team={match.team1} />}
         {done && (
-          <span className={cn('shrink-0 font-mono', team1Wins ? 'font-bold' : 'text-muted-foreground')}>
-            {match.s1 ?? 0}
-          </span>
+          match.sets.length > 0
+            ? <div className="flex shrink-0 gap-0.5">{match.sets.map((s, i) => <span key={i} className={cn('font-mono text-[10px]', s.s1 > s.s2 ? 'font-bold' : 'text-muted-foreground')}>{s.s1}</span>)}</div>
+            : <span className={cn('shrink-0 font-mono', team1Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s1 ?? 0}</span>
         )}
       </div>
       <div className="border-t border-border" />
@@ -203,9 +203,9 @@ function MatchCard({ match, onClick }: { match: MatchWithTeams; onClick: () => v
         </span>
         {match.team2 && <SeedBadge team={match.team2} />}
         {done && (
-          <span className={cn('shrink-0 font-mono', team2Wins ? 'font-bold' : 'text-muted-foreground')}>
-            {match.s2 ?? 0}
-          </span>
+          match.sets.length > 0
+            ? <div className="flex shrink-0 gap-0.5">{match.sets.map((s, i) => <span key={i} className={cn('font-mono text-[10px]', s.s2 > s.s1 ? 'font-bold' : 'text-muted-foreground')}>{s.s2}</span>)}</div>
+            : <span className={cn('shrink-0 font-mono', team2Wins ? 'font-bold' : 'text-muted-foreground')}>{match.s2 ?? 0}</span>
         )}
       </div>
     </div>

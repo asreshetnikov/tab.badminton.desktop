@@ -1577,12 +1577,17 @@ function MatchCard({
             </span>
           )}
           <span className="truncate font-medium">
-            {match.team1Name ?? t('schedule.tbd')} {t('schedule.vs')}{' '}
-            {match.team2Name ?? t('schedule.tbd')}
+            <span className={cn(match.winnerTeamId === match.team1Id && match.team1Id && 'font-semibold')}>
+              {match.team1Name ?? t('schedule.tbd')}
+            </span>
+            {' '}{t('schedule.vs')}{' '}
+            <span className={cn(match.winnerTeamId === match.team2Id && match.team2Id && 'font-semibold')}>
+              {match.team2Name ?? t('schedule.tbd')}
+            </span>
           </span>
-          {match.s1 !== null && match.s2 !== null && (
-            <span className="shrink-0 font-mono font-semibold tabular-nums">
-              {match.s1}–{match.s2}
+          {match.sets.length > 0 && (
+            <span className="shrink-0 font-mono tabular-nums">
+              {match.sets.map((s, i) => <span key={i}>{i > 0 && ' '}<span className={s.s1 > s.s2 ? 'font-semibold' : ''}>{s.s1}</span>{'–'}<span className={s.s2 > s.s1 ? 'font-semibold' : ''}>{s.s2}</span></span>)}
             </span>
           )}
           {match.status === 'live' && (
@@ -1772,15 +1777,19 @@ function TimelineMatchCard({
       </div>
 
       {/* Teams */}
-      <div className="font-medium leading-snug">
-        <div className="truncate">{match.team1Name ?? t('schedule.tbd')}</div>
-        <div className="truncate">{match.team2Name ?? t('schedule.tbd')}</div>
+      <div className="leading-snug">
+        <div className={cn('truncate font-medium', match.winnerTeamId === match.team1Id && match.team1Id && 'font-semibold')}>
+          {match.team1Name ?? t('schedule.tbd')}
+        </div>
+        <div className={cn('truncate font-medium', match.winnerTeamId === match.team2Id && match.team2Id && 'font-semibold')}>
+          {match.team2Name ?? t('schedule.tbd')}
+        </div>
       </div>
 
       {/* Score */}
-      {match.s1 !== null && match.s2 !== null && (
-        <div className="font-mono font-semibold tabular-nums">
-          {match.s1} – {match.s2}
+      {match.sets.length > 0 && (
+        <div className="font-mono tabular-nums">
+          {match.sets.map((s, i) => <span key={i}>{i > 0 && ' '}<span className={s.s1 > s.s2 ? 'font-semibold' : ''}>{s.s1}</span>{'–'}<span className={s.s2 > s.s1 ? 'font-semibold' : ''}>{s.s2}</span></span>)}
         </div>
       )}
 
