@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Check } from 'lucide-react'
 import { api } from '@renderer/lib/api'
 import { DEFAULT_START_TIME, DEFAULT_MATCH_DURATION } from '@shared/types/tournament-day-settings'
 import type { TournamentDaySetting } from '@shared/types/ipc'
@@ -66,9 +67,12 @@ export function DaySettingsList({ tournamentId, dateStart, dateEnd }: Props) {
     setSettings((prev) => prev.filter((x) => x.date !== date))
   }
 
-  const isDefault = (date: string) => {
-    const s = getSetting(date)
-    return !s || (s.start_time === DEFAULT_START_TIME && s.match_duration === DEFAULT_MATCH_DURATION)
+  const hasRecord = (date: string) => settings.some((s) => s.date === date)
+
+  async function handleAccept(date: string) {
+    const dto = { start_time: DEFAULT_START_TIME, match_duration: DEFAULT_MATCH_DURATION }
+    const updated = await api.tournamentDaySettings.upsert(tournamentId, date, dto)
+    setSettings((prev) => [...prev, updated])
   }
 
   return (
@@ -85,26 +89,26 @@ export function DaySettingsList({ tournamentId, dateStart, dateEnd }: Props) {
           const s = getSetting(date)
           const startTime = s?.start_time ?? DEFAULT_START_TIME
           const duration = s?.match_duration ?? DEFAULT_MATCH_DURATION
-          const nonDefault = !isDefault(date)
+          const saved = hasRecord(date)
           return (
-            <div key={date} className="grid grid-cols-[160px_100px_120px_60px] items-center gap-x-4 rounded-md px-1 py-1 hover:bg-muted/40">
-              <span className={`text-sm ${nonDefault ? 'font-medium' : 'text-muted-foreground'}`}>
+            <div key={date} className="grid grid-cols-[160px_100px_120px_auto] items-center gap-x-4 rounded-md px-1 py-1 hover:bg-muted/40">
+              <span className={`text-sm ${saved ? 'font-medium' : 'text-muted-foreground'}`}>
                 {formatDayLabel(date)}
               </span>
               <input
                 type="time"
                 value={startTime}
                 onChange={(e) => handleChange(date, 'start_time', e.target.value)}
-                className="h-7 rounded border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className={`h-7 rounded border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring ${!saved ? 'text-muted-foreground' : ''}`}
               />
               <input
                 type="number"
                 min={1}
                 value={duration}
                 onChange={(e) => handleChange(date, 'match_duration', e.target.value)}
-                className="h-7 w-20 rounded border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+                className={`h-7 w-20 rounded border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring ${!saved ? 'text-muted-foreground' : ''}`}
               />
-              {nonDefault && (
+              {saved ? (
                 <button
                   type="button"
                   onClick={() => handleReset(date)}
@@ -112,6 +116,18 @@ export function DaySettingsList({ tournamentId, dateStart, dateEnd }: Props) {
                 >
                   {t('daySettings.reset')}
                 </button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs italic text-muted-foreground/50">Default</span>
+                  <button
+                    type="button"
+                    onClick={() => handleAccept(date)}
+                    className="flex items-center gap-1 rounded border border-input px-2 py-0.5 text-xs text-muted-foreground hover:border-primary hover:text-primary"
+                  >
+                    <Check className="h-3 w-3" />
+                    Accept
+                  </button>
+                </div>
               )}
             </div>
           )
