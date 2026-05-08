@@ -14,6 +14,7 @@ interface ChecklistData {
   registrationsAccepted: number
   entriesCount: number
   eventsWithEntries: number
+  eventsWithSeeding: number
   roundsCount: number
   eventsWithRounds: number
   matchesTotal: number
@@ -29,7 +30,7 @@ interface StepDef {
   hint: string
   done: boolean
   countText: string
-  phase: 'setup' | 'day'
+  phase: 'setup' | 'registration' | 'competition'
   optional?: boolean
   onGo?: () => void
   goLabel?: string
@@ -42,7 +43,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
     d.eventsCount > 1 ? ` · ${withData}/${d.eventsCount} cat.` : ''
   return [
     {
-      phase: 'setup',
+      phase: 'setup' as const,
       label: 'Venue',
       hint: 'Assign a venue to the tournament',
       done: d.hasVenue,
@@ -51,7 +52,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       goLabel: 'Edit',
     },
     {
-      phase: 'setup',
+      phase: 'setup' as const,
       label: 'Courts',
       hint: 'Add courts used for scheduling',
       done: d.courtsCount > 0,
@@ -81,7 +82,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
         : 'No categories',
     },
     {
-      phase: 'setup',
+      phase: 'registration',
       label: 'Register players',
       hint: 'Add players to this tournament',
       done: d.registrationsTotal > 0,
@@ -90,7 +91,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       goLabel: 'Players',
     },
     {
-      phase: 'setup',
+      phase: 'registration',
       label: 'Accept registrations',
       hint: 'Accept pending player applications',
       done: d.registrationsAccepted > 0,
@@ -102,7 +103,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       goLabel: 'Players',
     },
     {
-      phase: 'setup',
+      phase: 'registration',
       label: 'Entries',
       hint: 'Register teams (doubles pairs) in event categories',
       done: d.entriesCount > 0,
@@ -114,7 +115,22 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       goLabel: 'Entries',
     },
     {
-      phase: 'setup',
+      phase: 'registration',
+      label: 'Seeding',
+      hint: 'Assign seeds to entries before generating brackets',
+      done: d.eventsWithSeeding > 0,
+      countText:
+        d.eventsWithSeeding > 0
+          ? d.eventsCount > 1
+            ? `${d.eventsWithSeeding}/${d.eventsCount} categories seeded`
+            : 'Seeded'
+          : d.entriesCount > 0 ? 'Not seeded' : 'No entries yet',
+      optional: true,
+      onGo: () => navigate(`/tournaments/${id}/teams`),
+      goLabel: 'Entries',
+    },
+    {
+      phase: 'competition',
       label: 'Rounds & participants',
       hint: 'Create round-robin groups and/or playoff brackets and add participants',
       done: d.roundsCount > 0,
@@ -126,7 +142,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       goLabel: 'Rounds',
     },
     {
-      phase: 'setup',
+      phase: 'competition',
       label: 'Generate matches',
       hint: 'Generate matches for all rounds',
       done: d.matchesTotal > 0,
@@ -138,7 +154,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       goLabel: 'Rounds',
     },
     {
-      phase: 'day',
+      phase: 'competition',
       label: 'Build schedule',
       hint: 'Assign matches to courts and time slots',
       done: d.matchesScheduled > 0,
@@ -150,7 +166,7 @@ function buildSteps(d: ChecklistData, id: string, onEdit: () => void, navigate: 
       goLabel: 'Schedule',
     },
     {
-      phase: 'day',
+      phase: 'competition',
       label: 'Enter results',
       hint: 'Record match results as games are played',
       done: d.matchesFinished > 0,
@@ -204,6 +220,11 @@ export function TournamentChecklist({
         registrationsAccepted: players.filter((p) => p.status === 'accepted').length,
         entriesCount: entries.length,
         eventsWithEntries: new Set(entries.map((e) => e.event_id)).size,
+        eventsWithSeeding: new Set(
+          entries
+            .filter((e) => e.seed_lo != null || e.seed_hi != null)
+            .map((e) => e.event_id)
+        ).size,
         roundsCount: roundsArr.flat().length,
         eventsWithRounds: roundsArr.filter((r) => r.length > 0).length,
         matchesTotal: allMatches.length,
@@ -231,7 +252,8 @@ export function TournamentChecklist({
   const progressPct = totalRequired > 0 ? (completedRequired / totalRequired) * 100 : 0
 
   const setupSteps = steps.filter((s) => s.phase === 'setup')
-  const daySteps = steps.filter((s) => s.phase === 'day')
+  const registrationSteps = steps.filter((s) => s.phase === 'registration')
+  const competitionSteps = steps.filter((s) => s.phase === 'competition')
 
   return (
     <div className="mt-6 rounded-lg border text-sm">
@@ -276,8 +298,9 @@ export function TournamentChecklist({
       {/* ── Body ── */}
       {open && (
         <div className="border-t">
-          <PhaseSection title="Before Tournament" steps={setupSteps} />
-          <PhaseSection title="Tournament Day" steps={daySteps} bordered />
+          <PhaseSection title="Tournament Setup" steps={setupSteps} />
+          <PhaseSection title="Participants" steps={registrationSteps} bordered />
+          <PhaseSection title="Draw & Play" steps={competitionSteps} bordered />
         </div>
       )}
     </div>
