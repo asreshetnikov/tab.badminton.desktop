@@ -9,7 +9,7 @@ export function Sidebar() {
   const { settings } = useAppSettings()
 
   const navItems = [
-    { to: '/', icon: LayoutDashboard, label: t('nav.dashboard'), end: true },
+    { to: '/', icon: LayoutDashboard, label: t('nav.tournaments'), end: true },
     { to: '/players', icon: Users, label: t('nav.players') },
     { to: '/teams', icon: UsersRound, label: t('nav.teams') }
   ]
