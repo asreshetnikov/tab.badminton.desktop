@@ -305,11 +305,12 @@ export function GroupsView() {
   function autoFillOpposite(idx: number, field: 's1' | 's2', value: string) {
     const otherField = field === 's1' ? 's2' : 's1'
     const num = parseInt(value, 10)
+    const pts = tournament?.points_per_set ?? 21
     setResultSets((prev) =>
       prev.map((s, i) => {
         if (i !== idx || isNaN(num) || s[otherField] !== '') return s
-        if (num <= 19) return { ...s, [otherField]: '21' }
-        if (num === 20) return { ...s, [otherField]: '22' }
+        if (num <= pts - 2) return { ...s, [otherField]: String(pts) }
+        if (num === pts - 1) return { ...s, [otherField]: String(pts + 1) }
         return s
       })
     )

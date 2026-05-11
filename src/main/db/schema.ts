@@ -22,6 +22,7 @@ export const tournaments = sqliteTable('tournaments', {
   age_min: integer('age_min'),
   age_max: integer('age_max'),
   rest_minutes: integer('rest_minutes'),
+  points_per_set: integer('points_per_set').notNull().default(21),
   created_at: text('created_at').notNull(),
   updated_at: text('updated_at').notNull(),
   is_demo: integer('is_demo', { mode: 'boolean' }).notNull().default(false)

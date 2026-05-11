@@ -47,7 +47,9 @@
     "namePlaceholder": "e.g. Open Cup 2025",
     "venue": "Venue",
     "dateStart": "Start Date",
-    "dateEnd": "End Date"
+    "dateEnd": "End Date",
+    "pointsPerSet": "Points per set",
+    "pointsPerSetHint": "Used for score auto-fill. Standard: 21 (current rules) or 15 (new rules)"
   },
   "venue": {
     "noVenue": "No venue",

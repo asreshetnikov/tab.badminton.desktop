@@ -15,6 +15,7 @@ export interface Tournament {
   age_min: number | null
   age_max: number | null
   rest_minutes: number | null
+  points_per_set: number
   created_at: string
   updated_at: string
   is_demo: boolean
@@ -29,6 +30,7 @@ export interface CreateTournamentDTO {
   age_min?: number | null
   age_max?: number | null
   rest_minutes?: number | null
+  points_per_set?: number
 }
 
 export interface UpdateTournamentDTO {
@@ -40,4 +42,5 @@ export interface UpdateTournamentDTO {
   age_min?: number | null
   age_max?: number | null
   rest_minutes?: number | null
+  points_per_set?: number
 }

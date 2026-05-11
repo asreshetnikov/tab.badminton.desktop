@@ -1,0 +1,1 @@
+ALTER TABLE `tournaments` ADD `points_per_set` integer NOT NULL DEFAULT 21;

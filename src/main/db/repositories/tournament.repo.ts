@@ -21,6 +21,7 @@ export class TournamentRepository {
         status: data.status ?? 'draft',
         age_min: data.age_min ?? null,
         age_max: data.age_max ?? null,
+        points_per_set: data.points_per_set ?? 21,
         created_at: now,
         updated_at: now,
         is_demo: isDemoMode

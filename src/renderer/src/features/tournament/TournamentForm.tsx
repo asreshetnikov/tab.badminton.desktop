@@ -41,6 +41,7 @@ export function TournamentForm({
     if (defaultValues?.age_max != null) return String(defaultValues.age_max + 1)
     return ''
   })
+  const [pointsPerSet, setPointsPerSet] = useState<number>(defaultValues?.points_per_set ?? 21)
   const [errors, setErrors] = useState<FormErrors>({})
 
   function validate(): boolean {
@@ -64,7 +65,8 @@ export function TournamentForm({
       date_start: dateStart,
       date_end: dateEnd,
       age_min: ageType === 'over' && parsedAgeVal ? parsedAgeVal : null,
-      age_max: ageType === 'under' && parsedAgeVal ? parsedAgeVal - 1 : null
+      age_max: ageType === 'under' && parsedAgeVal ? parsedAgeVal - 1 : null,
+      points_per_set: pointsPerSet
     })
   }
 
@@ -143,6 +145,18 @@ export function TournamentForm({
             </div>
           )}
         </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <label className="text-sm font-medium">{t('tournamentForm.pointsPerSet')}</label>
+        <Input
+          type="number"
+          min={1}
+          value={pointsPerSet}
+          onChange={(e) => setPointsPerSet(parseInt(e.target.value, 10) || 21)}
+          className="w-24"
+        />
+        <p className="text-xs text-muted-foreground">{t('tournamentForm.pointsPerSetHint')}</p>
       </div>
 
       <div className="flex justify-end gap-2 pt-2">
