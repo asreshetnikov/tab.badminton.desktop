@@ -50,7 +50,9 @@ const api: AppAPI = {
     registerMany: (tournamentId, playerIds) => ipcRenderer.invoke('tournamentPlayers:registerMany', tournamentId, playerIds),
     listByTournament: (tournamentId) => ipcRenderer.invoke('tournamentPlayers:listByTournament', tournamentId),
     updateStatus: (id, status) => ipcRenderer.invoke('tournamentPlayers:updateStatus', id, status),
-    remove: (id) => ipcRenderer.invoke('tournamentPlayers:remove', id)
+    remove: (id) => ipcRenderer.invoke('tournamentPlayers:remove', id),
+    getPlayerActivity: (tournamentId) =>
+      ipcRenderer.invoke('tournamentPlayers:getPlayerActivity', tournamentId)
   },
 
   rounds: {

@@ -17,6 +17,7 @@ import type { MatchSlot } from './schedule'
 import type { TournamentDaySetting, UpsertTournamentDaySettingDTO } from './tournament-day-settings'
 import type { TournamentStageDuration, UpsertStageDurationDTO } from './tournament-stage-duration'
 import type { AppSettings } from './app-settings'
+import type { PlayerActivityStatus } from './player-activity'
 
 export interface ScheduleQueueItem {
   matchId: string
@@ -53,6 +54,7 @@ export type { MatchSlot }
 export type { TournamentDaySetting, UpsertTournamentDaySettingDTO }
 export type { TournamentStageDuration, UpsertStageDurationDTO }
 export type { AppSettings }
+export type { PlayerActivityStatus }
 
 export interface SimulationResult {
   matchesPlayed: number
@@ -107,6 +109,7 @@ export interface AppAPI {
     listByTournament(tournamentId: string): Promise<TournamentPlayerWithPlayer[]>
     updateStatus(id: string, status: RegistrationStatus): Promise<TournamentPlayerWithPlayer>
     remove(id: string): Promise<void>
+    getPlayerActivity(tournamentId: string): Promise<PlayerActivityStatus[]>
   }
 
   teams: {

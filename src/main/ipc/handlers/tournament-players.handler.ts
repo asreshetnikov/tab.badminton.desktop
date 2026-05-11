@@ -26,4 +26,7 @@ export function registerTournamentPlayersHandler(): void {
   ipcMain.handle('tournamentPlayers:remove', (_e, id: string) =>
     new TournamentPlayerRepository(getDb()).remove(id)
   )
+  ipcMain.handle('tournamentPlayers:getPlayerActivity', (_e, tournamentId: string) =>
+    new TournamentPlayerRepository(getDb()).getPlayerActivity(tournamentId)
+  )
 }

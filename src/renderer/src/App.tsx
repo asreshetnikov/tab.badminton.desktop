@@ -11,6 +11,7 @@ import { TournamentRounds } from './app/routes/TournamentRounds'
 import { GroupsView } from './app/routes/GroupsView'
 import { PlayoffBracket } from './app/routes/PlayoffBracket'
 import { TournamentSchedule } from './app/routes/TournamentSchedule'
+import { TournamentActivity } from './app/routes/TournamentActivity'
 import { TournamentPlayerDetail } from './app/routes/TournamentPlayerDetail'
 import { Settings } from './app/routes/Settings'
 import { AppSettingsProvider } from './contexts/AppSettingsContext'
@@ -31,6 +32,7 @@ function App() {
           <Route path="/tournaments/:id/events/:eid/rounds/:rid/groups" element={<GroupsView />} />
           <Route path="/tournaments/:id/events/:eid/rounds/:rid/playoff" element={<PlayoffBracket />} />
           <Route path="/tournaments/:id/schedule" element={<TournamentSchedule />} />
+          <Route path="/tournaments/:id/activity" element={<TournamentActivity />} />
           <Route path="/players" element={<Players />} />
           <Route path="/teams" element={<Teams />} />
           <Route path="/settings" element={<Settings />} />

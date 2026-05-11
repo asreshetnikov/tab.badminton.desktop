@@ -178,6 +178,15 @@
       "XD": "Mixed Doubles"
     }
   },
+  "activity": {
+    "title": "Activity",
+    "summary": "{{active}} of {{total}} players still active",
+    "stillPlaying": "Still playing",
+    "eliminated": "Eliminated",
+    "noPlayers": "No accepted players.",
+    "active": "Active",
+    "done": "Done"
+  },
   "courts": {
     "title": "Courts",
     "empty": "No courts added yet.",

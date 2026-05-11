@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2, List, LayoutGrid, RefreshCw, GripVertical } from 'lucide-react'
+import { ChevronLeft, AlertTriangle, Wand2, Settings2, Plus, Trash2, List, LayoutGrid, RefreshCw, GripVertical, Activity } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -768,6 +768,10 @@ export function TournamentSchedule() {
         <span className="text-muted-foreground">/</span>
         <h1 className="text-lg font-semibold">{t('schedule.title')}</h1>
         <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${id}/activity`)}>
+            <Activity className="mr-1.5 h-3.5 w-3.5" />
+            {t('activity.title')}
+          </Button>
           {/* View toggle */}
           <div className="flex overflow-hidden rounded-md border">
             <Button

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Pencil, Trash2, Users, Shield, ListTree, CalendarClock, Play } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, Users, Shield, ListTree, CalendarClock, Play, Activity } from 'lucide-react'
 import { Button } from '@renderer/components/ui/button'
 import {
   Dialog,
@@ -210,6 +210,10 @@ export function TournamentDetail() {
           {counts != null && (
             <span className="ml-1.5 text-xs text-muted-foreground">{counts.matches}</span>
           )}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => navigate(`/tournaments/${tournament.id}/activity`)}>
+          <Activity className="mr-1.5 h-3.5 w-3.5" />
+          {t('activity.title')}
         </Button>
         {settings.demoMode && (
           <Button
