@@ -14,6 +14,7 @@ import { registerScheduleHandler } from './handlers/schedule.handler'
 import { registerTournamentDaySettingsHandler } from './handlers/tournament-day-settings.handler'
 import { registerTournamentStageDurationsHandler } from './handlers/tournament-stage-durations.handler'
 import { registerAppSettingsHandler } from './handlers/app-settings.handler'
+import { registerExportHandler } from './handlers/export.handler'
 
 export function registerIpcHandlers(): void {
   registerPingHandler()
@@ -32,4 +33,5 @@ export function registerIpcHandlers(): void {
   registerTournamentDaySettingsHandler()
   registerTournamentStageDurationsHandler()
   registerAppSettingsHandler()
+  registerExportHandler()
 }

@@ -21,6 +21,7 @@ import { formatDate } from '@renderer/lib/format'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@renderer/lib/utils'
 import { useAppSettings } from '@renderer/contexts/AppSettingsContext'
+import { PublishPanel } from '@renderer/features/tournament/PublishPanel'
 import type { Tournament, Venue, CreateTournamentDTO } from '@shared/types/ipc'
 
 interface TabCounts {
@@ -255,6 +256,8 @@ export function TournamentDetail() {
           </>
         )}
       </dl>
+
+      <PublishPanel tournamentId={tournament.id} />
 
       <EventList
         tournamentId={tournament.id}

@@ -1,9 +1,12 @@
+import { useState } from 'react'
 import { useAppSettings } from '@renderer/contexts/AppSettingsContext'
 import { useTranslation } from 'react-i18next'
 
 export function Settings() {
-  const { settings, setDemoMode, setDefaultMatchDuration } = useAppSettings()
+  const { settings, setDemoMode, setDefaultMatchDuration, setPublishToken } = useAppSettings()
   const { t } = useTranslation()
+
+  const [tokenDraft, setTokenDraft] = useState(settings.publishToken)
 
   return (
     <div className="p-6 max-w-lg">
@@ -44,6 +47,23 @@ export function Settings() {
               className="h-7 w-20 rounded border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
             />
             <span className="text-sm text-muted-foreground">min</span>
+          </div>
+        </div>
+
+        <div className="space-y-4 border-t pt-6">
+          <div className="flex-1">
+            <label className="text-sm font-medium">Publish token</label>
+            <div className="text-xs text-muted-foreground mb-1">
+              Token issued by the site administrator. Required to publish tournaments.
+            </div>
+            <input
+              type="password"
+              value={tokenDraft}
+              onChange={(e) => setTokenDraft(e.target.value)}
+              onBlur={() => setPublishToken(tokenDraft.trim())}
+              placeholder="token_••••••••••••••••"
+              className="h-8 w-full rounded border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            />
           </div>
         </div>
       </div>

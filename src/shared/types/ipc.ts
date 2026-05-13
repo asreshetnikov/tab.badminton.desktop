@@ -61,6 +61,11 @@ export interface SimulationResult {
   remaining: number
 }
 
+export interface PublishResult {
+  url: string
+  publishedAt: string
+}
+
 export interface AppAPI {
   ping(): Promise<string>
 
@@ -189,5 +194,9 @@ export interface AppAPI {
 
   tournaments: {
     simulate(tournamentId: string): Promise<SimulationResult>
+  }
+
+  exportApi: {
+    publish(tournamentId: string): Promise<PublishResult>
   }
 }

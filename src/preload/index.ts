@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { AppAPI, AssignSlotDTO } from '../shared/types/ipc'
 import type { UpsertTournamentDaySettingDTO } from '../shared/types/tournament-day-settings'
 import type { UpsertStageDurationDTO } from '../shared/types/tournament-stage-duration'
+import type { AppSettings } from '../shared/types/app-settings'
 
 const api: AppAPI = {
   ping: () => ipcRenderer.invoke('ping'),
@@ -138,11 +139,15 @@ const api: AppAPI = {
 
   appSettings: {
     get: () => ipcRenderer.invoke('appSettings:get'),
-    set: (settings: Partial<{ demoMode: boolean }>) => ipcRenderer.invoke('appSettings:set', settings)
+    set: (settings: Partial<AppSettings>) => ipcRenderer.invoke('appSettings:set', settings)
   },
 
   tournaments: {
     simulate: (tournamentId: string) => ipcRenderer.invoke('tournaments:simulate', tournamentId)
+  },
+
+  exportApi: {
+    publish: (tournamentId: string) => ipcRenderer.invoke('exportApi:publish', tournamentId)
   }
 }
 
