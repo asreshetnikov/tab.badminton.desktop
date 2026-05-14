@@ -1,6 +1,7 @@
 import { eq, and, inArray } from 'drizzle-orm'
 import { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3'
 import * as schema from '../db/schema'
+import { computeBracketRounds } from './schedule.service'
 import type {
   TournamentSnapshot,
   SnapshotEvent,
@@ -147,6 +148,9 @@ function buildRound(
     setsByMatch.get(s.match_id)!.push({ s1: s.s1, s2: s.s2 })
   }
 
+  const bracketRounds =
+    round.type === 'playoff' ? computeBracketRounds(matchRows) : new Map<string, number>()
+
   const matches: SnapshotMatch[] = matchRows.map((m) => ({
     id: m.id,
     team1_id: m.team1_id,
@@ -159,7 +163,8 @@ function buildRound(
     win_match_id: m.win_match_id,
     left_match_id: m.left_match_id,
     right_match_id: m.right_match_id,
-    tour: m.tour
+    tour: m.tour,
+    bracket_round: bracketRounds.get(m.id) ?? null
   }))
 
   let standings: SnapshotStandingRow[] | undefined = undefined

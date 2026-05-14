@@ -112,7 +112,7 @@ export function validateConflicts(
  * bracketRound 1 = first round (leaf nodes), increasing toward the final.
  * Uses BFS starting from the final match (the one with win_match_id = null).
  */
-function computeBracketRounds(
+export function computeBracketRounds(
   matchesInRound: Array<{
     id: string
     win_match_id: string | null

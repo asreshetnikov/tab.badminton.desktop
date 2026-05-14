@@ -56,6 +56,7 @@ export interface SnapshotMatch {
   left_match_id: string | null
   right_match_id: string | null
   tour: number | null
+  bracket_round: number | null
 }
 
 export interface SnapshotStandingRow {
