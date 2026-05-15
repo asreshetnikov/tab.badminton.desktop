@@ -5,6 +5,7 @@ import { computeBracketRounds } from './schedule.service'
 import type {
   TournamentSnapshot,
   SnapshotEvent,
+  SnapshotEntry,
   SnapshotRound,
   SnapshotMatch,
   SnapshotStandingRow
@@ -65,11 +66,14 @@ export function buildSnapshot(
 
     const snapshotRounds: SnapshotRound[] = rounds.map((round) => buildRound(db, round))
 
+    const entries = buildEntries(db, event.id)
+
     return {
       id: event.id,
       name: event.name,
       category: event.category,
       order: event.order,
+      entries,
       rounds: snapshotRounds
     }
   })
@@ -88,6 +92,46 @@ export function buildSnapshot(
     events: snapshotEvents,
     players
   }
+}
+
+function buildEntries(
+  db: BetterSQLite3Database<typeof schema>,
+  eventId: string
+): SnapshotEntry[] {
+  const entryRows = db
+    .select({
+      team_id: schema.tournament_teams.team_id,
+      team_name: schema.teams.name,
+      seed_lo: schema.tournament_teams.seed_lo,
+      seed_hi: schema.tournament_teams.seed_hi
+    })
+    .from(schema.tournament_teams)
+    .innerJoin(schema.teams, eq(schema.teams.id, schema.tournament_teams.team_id))
+    .where(eq(schema.tournament_teams.event_id, eventId))
+    .all()
+
+  if (entryRows.length === 0) return []
+
+  const teamIds = entryRows.map((r) => r.team_id)
+  const playerRows = db
+    .select({ team_id: schema.team_players.team_id, player_id: schema.team_players.player_id })
+    .from(schema.team_players)
+    .where(inArray(schema.team_players.team_id, teamIds))
+    .all()
+
+  const playersByTeam = new Map<string, string[]>()
+  for (const r of playerRows) {
+    if (!playersByTeam.has(r.team_id)) playersByTeam.set(r.team_id, [])
+    playersByTeam.get(r.team_id)!.push(r.player_id)
+  }
+
+  return entryRows.map((r) => ({
+    team_id: r.team_id,
+    team_name: r.team_name,
+    player_ids: playersByTeam.get(r.team_id) ?? [],
+    seed_lo: r.seed_lo ?? null,
+    seed_hi: r.seed_hi ?? null
+  }))
 }
 
 function buildRound(

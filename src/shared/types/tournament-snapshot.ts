@@ -25,11 +25,20 @@ export interface SnapshotPlayer {
   club: string | null
 }
 
+export interface SnapshotEntry {
+  team_id: string
+  team_name: string
+  player_ids: string[]
+  seed_lo: number | null
+  seed_hi: number | null
+}
+
 export interface SnapshotEvent {
   id: string
   name: string
   category: EventCategory
   order: number
+  entries: SnapshotEntry[]
   rounds: SnapshotRound[]
 }
 
